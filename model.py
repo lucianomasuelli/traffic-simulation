@@ -86,7 +86,36 @@ class IntersectionModel:
         """Tries to inject a new vehicle into the system."""
         # Implementation of vehicle injection with INJECTION_RATE 'a'
         # Should choose a road (R1/R2) and a lane (LEFT/RIGHT) if the starting cell (position 0) is free.
-        pass  # Injection logic (to be implemented)
+
+        # Try to inject with probability INJECTION_RATE
+        if random.random() > self.INJECTION_RATE:
+            return  # No injection this time step
+
+        # Randomly choose a road and lane
+        road = random.choice(list(Road))
+        lane = random.choice(list(Lane))
+
+        # Check if the starting position (cell 0) is free
+        if self.grid[road][lane][0] is not None:
+            return  # Starting position is occupied, cannot inject
+
+        # Create a new vehicle
+        new_vehicle = Vehicle(
+            vehicle_id=self.next_vehicle_id,
+            road=road,
+            lane=lane,
+            vmax=self.V_MAX_BASE,
+            p_red=self.P_RED,
+            p_skid=self.P_SKID,
+        )
+
+        # Increment vehicle ID counter
+        self.next_vehicle_id += 1
+        self.N_vehicles += 1
+
+        # Add vehicle to the grid and vehicle list
+        self.grid[road][lane][0] = new_vehicle
+        self.vehicles.append(new_vehicle)
 
     def find_front_vehicle(self, vehicle: Vehicle) -> Vehicle | None:
         """Finds the vehicle object directly ahead in the same lane."""
