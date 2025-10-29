@@ -24,6 +24,8 @@ class CSVLogger:
         self.fieldnames = [
             # Timestamp
             "timestamp",
+            # Configuration metadata
+            "config_id",
             # Model parameters
             "length",
             "vmax",
@@ -41,6 +43,7 @@ class CSVLogger:
             "throughput",
             "lateral_to_rear_end_ratio",
             "time",
+            "total_time",
         ]
 
         # Create file with header if it doesn't exist

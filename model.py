@@ -1,5 +1,5 @@
 import random
-from entities import Road, Lane, TrafficLightState, Weather, Vehicle
+from entities import Road, Lane, TrafficLightState, Vehicle
 from parameters import ModelParameters
 import time
 
