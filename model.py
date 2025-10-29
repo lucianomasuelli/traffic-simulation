@@ -64,7 +64,7 @@ class IntersectionModel:
         self.N_rear_end = 0  # Total count of rear-end collisions (braking failure)
         self.N_vehicles = 0  # Total number of vehicles that have circulated
         self.throughput = (
-            0  # Number of vehicles crossing the intersection per unit time
+            0  # Number of vehicles that have passed through the intersection
         )
 
         # Define the intersection cell (the cell right at the crossing)
@@ -228,6 +228,8 @@ class IntersectionModel:
                 and not vehicle.collided
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
+                # Increment throughput for vehicles passing through the intersection
+                self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
 
@@ -271,7 +273,6 @@ class IntersectionModel:
             elif final_pos >= self.L:
                 # Vehicle successfully completed the road and leaves the system
                 vehicles_to_remove.append(vehicle)
-                self.throughput += 1
 
             else:
                 # Vehicle moves to new cell (normal movement)
