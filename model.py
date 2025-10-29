@@ -235,6 +235,8 @@ class IntersectionModel:
 
         # **NEW LOGIC: If *both* roads have vehicles entering the intersection...**
         if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
+            # print the state of the roads if there is a lateral collision
+            self.print_road_state()
             self.N_lateral += 1
 
             # Mark ALL vehicles entering the intersection as collided
@@ -314,3 +316,32 @@ class IntersectionModel:
             "Accident_Ratio_Lateral_to_RearEnd": self.N_lateral
             / (self.N_rear_end + 1e-6),  # Avoid div by zero
         }
+
+    def print_road_state(self):
+        """Prints the current state of the roads for debugging."""
+        for road in Road:
+            print(f"--- Road {road.name} ---")
+            for lane in Lane:
+                lane_state = ""
+                for cell in self.grid[road][lane]:
+                    if cell is None:
+                        lane_state += ". "
+                    else:
+                        lane_state += f"{cell.velocity} " if not cell.collided else "X "
+                print(f"Lane {lane.name}: {lane_state}")
+        print("-----------------------")
+
+    def print_intersection(self):
+        """Prints the state of the intersection area for debugging."""
+        print(f"--- Intersection State at time {self.time_step} ---")
+        for road in Road:
+            for lane in Lane:
+                cell = self.grid[road][lane][self.intersection_cell]
+                if cell is None:
+                    status = "Empty"
+                else:
+                    status = (
+                        f"Vehicle {cell.id} {'[COLLIDED]' if cell.collided else ''}"
+                    )
+                print(f"Road {road.name} Lane {lane.name}: {status}")
+        print("-----------------------------------------")
