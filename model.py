@@ -1,7 +1,7 @@
 import random
 from entities import Road, Lane, TrafficLightState, Weather, Vehicle
 from parameters import ModelParameters
-
+import time
 
 # ----------------------------------------------------
 # Intersection Model Class
@@ -130,6 +130,7 @@ class IntersectionModel:
         """
         Calculates the distance (gap) to the vehicle ahead.
         This is the number of empty cells *between* this car and the next one.
+        If no vehicle is ahead, returns a large value (effectively infinite gap).
         """
         road = self.grid[vehicle.road][vehicle.lane]
         # Iterate from the cell in front of the vehicle to the end
@@ -137,8 +138,9 @@ class IntersectionModel:
             if road[i] is not None:
                 # Found a vehicle, gap is distance to it
                 return i - vehicle.position - 1
-        # No vehicle found, gap is to the end of the road
-        return self.L - vehicle.position - 1
+        # No vehicle found, gap is effectively infinite (return large value)
+        # This allows vehicles to accelerate and leave the road
+        return self.L * 2  # Large enough gap to not limit velocity
 
     def apply_nash_rules(self):
         """
@@ -263,21 +265,21 @@ class IntersectionModel:
                     # Place it in the grid so it blocks traffic
                     self.grid[vehicle.road][vehicle.lane][final_pos] = vehicle
                 else:
-                    # Collided and also tried to leave? Just remove it.
+                    # Collided vehicle at or beyond road end - remove it
                     vehicles_to_remove.append(vehicle)
 
             elif final_pos >= self.L:
-                # Vehicle leaves the system
+                # Vehicle successfully completed the road and leaves the system
                 vehicles_to_remove.append(vehicle)
                 self.throughput += 1
 
             else:
-                # Vehicle moves to new cell
+                # Vehicle moves to new cell (normal movement)
                 vehicle.position = final_pos
                 vehicle.velocity = final_vel
                 self.grid[vehicle.road][vehicle.lane][final_pos] = vehicle
 
-        # Remove vehicles that left or collided off-map
+        # Remove vehicles that have left the road
         for vehicle in vehicles_to_remove:
             self.vehicles.remove(vehicle)
 
@@ -290,6 +292,14 @@ class IntersectionModel:
             self.update_traffic_light()
             self.inject_vehicle()
             self.apply_nash_rules()
+
+            # # print all vehicles' positions and velocities
+            # for vehicle in self.vehicles:
+            #     print(
+            #         f"Time {self.time_step}: Vehicle {vehicle.id} on {vehicle.road.name}-{vehicle.lane.name} at pos {vehicle.position} with vel {vehicle.velocity} {'[COLLIDED]' if vehicle.collided else ''}"
+            #     )
+
+            # time.sleep(5)
             # In a real run, you'd collect data here
         print("--- Simulation complete ---")
 
