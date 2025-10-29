@@ -323,25 +323,42 @@ class IntersectionModel:
 
     def run_simulation(self, steps: int):
         """Runs the simulation for a number of steps."""
-        print(f"--- Running simulation for {steps} steps ---")
+        self.steps = steps
+
+        t1 = time.time()
         for _ in range(steps):
             self.update_traffic_light()
             self.inject_vehicle()
             self.apply_nasch_rules()
 
-            # In a real run, you'd collect data here
-        print("--- Simulation complete ---")
+        t2 = time.time()
+        self.simulation_time = t2 - t1
 
     def get_metrics(self):
         """Returns the output metrics of the simulation."""
         return {
-            "N_lateral": self.N_lateral,
-            "N_rear_end": self.N_rear_end,
-            "N_vehicles": self.N_vehicles,
-            "Throughput": self.throughput,
-            "Lateral_to_rearend_ratio": (
+            "n_lateral": self.N_lateral,
+            "n_rear_end": self.N_rear_end,
+            "n_vehicles": self.N_vehicles,
+            "throughput": self.throughput,
+            "lateral_to_rear_end_ratio": (
                 self.N_lateral / self.N_rear_end if self.N_rear_end > 0 else 0
             ),
+            "time": self.simulation_time,
+        }
+
+    def get_params(self):
+        """Returns the model parameters."""
+        return {
+            "length": self.L,
+            "vmax": self.V_MAX_BASE,
+            "t_green": self.T_GREEN,
+            "injection_rate": self.INJECTION_RATE,
+            "p_b": self.P_B,
+            "p_chg": self.P_CHG,
+            "p_red": self.P_RED,
+            "p_skid": self.P_SKID,
+            "steps": self.steps,
         }
 
     def print_road_state(self):

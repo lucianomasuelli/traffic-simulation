@@ -1,5 +1,6 @@
 from model import IntersectionModel
 from parameters import NORMAL_PARAMS, RAINY_PARAMS
+from logger import CSVLogger
 import time
 
 # Fixed System Parameters
@@ -20,6 +21,10 @@ if __name__ == "__main__":
     print(f"\n--- Simulation Time (NORMAL): {t2 - t1:.2f} seconds ---")
 
     metrics_normal = model_normal.get_metrics()
+    params_normal = model_normal.get_params()
+
+    logger = CSVLogger()
+    logger.log({**params_normal, **metrics_normal})
 
     print("\n--- NORMAL WEATHER METRICS ---")
     for key, value in metrics_normal.items():
