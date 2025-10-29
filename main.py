@@ -6,7 +6,7 @@ import time
 L_INIT = 200
 V_MAX_INIT = 5
 T_GREEN_INIT = 40
-INJECTION_RATE_INIT = 1
+INJECTION_RATE_INIT = 0.1
 
 if __name__ == "__main__":
     t1 = time.time()
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     model_normal = IntersectionModel(
         L_INIT, V_MAX_INIT, T_GREEN_INIT, INJECTION_RATE_INIT, NORMAL_PARAMS
     )
-    model_normal.run_simulation(steps=1000)
+    model_normal.run_simulation(steps=100000)
 
     t2 = time.time()
     print(f"\n--- Simulation Time (NORMAL): {t2 - t1:.2f} seconds ---")

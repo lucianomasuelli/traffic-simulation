@@ -45,10 +45,16 @@ class IntersectionModel:
         self.P_RED = params.p_red
         self.P_SKID = params.p_skid
 
+        # Intersection dimensions
+        self.INTERSECTION_SIZE = (
+            2  # Number of cells each lane occupies in the intersection
+        )
+        # Total road length including intersection space
+        self.L_TOTAL = self.L + self.INTERSECTION_SIZE
+
         # Simulation objects collections
         # The 'grid' is a dictionary-based representation of the road.
-        # {Road.R1: {Lane.LEFT: [None] * L, Lane.RIGHT: [None] * L}, ...}
-        self.grid = {r: {l: [None] * self.L for l in Lane} for r in Road}
+        self.grid = {r: {l: [None] * self.L_TOTAL for l in Lane} for r in Road}
         self.vehicles = []  # List of all active Vehicle objects
         self.next_vehicle_id = 0
         self.time_step = 0
@@ -67,8 +73,10 @@ class IntersectionModel:
             0  # Number of vehicles that have passed through the intersection
         )
 
-        # Define the intersection cell (the cell right at the crossing)
-        self.intersection_cell = self.L // 2
+        # Define the intersection zone
+        # Stop line is at the position before the intersection starts
+        self.intersection_start = self.L // 2
+        self.intersection_end = self.intersection_start + self.INTERSECTION_SIZE
 
     def update_traffic_light(self):
         """Updates the traffic light state every T_GREEN time steps."""
@@ -121,7 +129,7 @@ class IntersectionModel:
         """Finds the vehicle object directly ahead in the same lane."""
         road = self.grid[vehicle.road][vehicle.lane]
         # Search from the cell in front of the vehicle to the end
-        for i in range(vehicle.position + 1, self.L):
+        for i in range(vehicle.position + 1, self.L_TOTAL):
             if road[i] is not None:
                 return road[i]
         return None  # No vehicle found
@@ -131,18 +139,42 @@ class IntersectionModel:
         Calculates the distance (gap) to the vehicle ahead.
         This is the number of empty cells *between* this car and the next one.
         If no vehicle is ahead, returns a large value (effectively infinite gap).
+        Also considers the intersection stop line as a barrier if the light is red.
         """
         road = self.grid[vehicle.road][vehicle.lane]
+
+        # Check if there's a red light ahead and vehicle hasn't passed the intersection yet
+        if (
+            self.traffic_light[vehicle.road] == TrafficLightState.RED
+            and vehicle.position < self.intersection_start
+        ):
+            # Gap to the stop line (position before intersection)
+            gap_to_intersection = self.intersection_start - vehicle.position - 1
+
+            # Check for vehicles between current position and intersection
+            for i in range(vehicle.position + 1, self.intersection_start):
+                if road[i] is not None:
+                    # Found a vehicle before the intersection
+                    return i - vehicle.position - 1
+
+            # No vehicle found before intersection, but red light acts as barrier
+            # Return gap to stop line
+
+            # Check probability of red light violation
+            if random.random() < vehicle.p_red:
+                # Vehicle decides to violate the red light
+                return gap_to_intersection
+
+        # Normal case: look for vehicles ahead (either green light or already past intersection)
         # Iterate from the cell in front of the vehicle to the end
-        for i in range(vehicle.position + 1, self.L):
+        for i in range(vehicle.position + 1, self.L_TOTAL):
             if road[i] is not None:
                 # Found a vehicle, gap is distance to it
                 return i - vehicle.position - 1
-        # No vehicle found, gap is effectively infinite (return large value)
-        # This allows vehicles to accelerate and leave the road
-        return self.L * 2  # Large enough gap to not limit velocity
 
-    def apply_nash_rules(self):
+        return self.L_TOTAL * 2  # Large enough gap to not limit velocity
+
+    def apply_nasch_rules(self):
         """
         Applies the NaSch update rules and collision logic in three phases:
         1. Calculation: Determine intended moves.
@@ -158,10 +190,10 @@ class IntersectionModel:
         # --- PHASE 1: Calculate intended moves for all vehicles ---
 
         for vehicle in self.vehicles:
-            if vehicle.collided:
-                # If already collided, it doesn't move
-                new_vehicles_state[vehicle] = {"pos": vehicle.position, "vel": 0}
-                continue
+            # if vehicle.collided:
+            #     # If already collided, it doesn't move
+            #     new_vehicles_state[vehicle] = {"pos": vehicle.position, "vel": 0}
+            #     continue
 
             v_i = vehicle.velocity
             # d_i is the gap to the *next vehicle*
@@ -176,7 +208,7 @@ class IntersectionModel:
 
             # --- Intersection Logic (Part of Deceleration) ---
             # g_i is the gap to the *intersection stop line*
-            gap_to_intersection = self.intersection_cell - vehicle.position - 1
+            gap_to_intersection = self.intersection_start - vehicle.position - 1
 
             # Check if vehicle is approaching a RED light
             if self.traffic_light[vehicle.road] == TrafficLightState.RED:
@@ -222,9 +254,9 @@ class IntersectionModel:
             new_vehicles_state[vehicle] = {"pos": new_pos, "vel": v_new}
 
             # --- Check if this move enters the intersection ---
-            # A vehicle enters if its old pos was *before* and new pos is *at or after*
+            # A vehicle enters if its old pos was *before* and new pos is *at or after* intersection start
             if (
-                vehicle.position < self.intersection_cell <= new_pos
+                vehicle.position < self.intersection_start <= new_pos
                 and not vehicle.collided
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
@@ -236,23 +268,24 @@ class IntersectionModel:
         # **NEW LOGIC: If *both* roads have vehicles entering the intersection...**
         if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
             # print the state of the roads if there is a lateral collision
-            self.print_road_state()
             self.N_lateral += 1
 
             # Mark ALL vehicles entering the intersection as collided
-            # This is a simplification; a more complex model would check lane-by-lane
+            # Only vehicles that actually entered (violators) should collide
+            # Vehicles stopped before the intersection are safe
             for road_entrants in intersection_entrants.values():
                 for vehicle in road_entrants:
                     if not vehicle.collided:  # Don't re-collide a rear-ended car
                         vehicle.collided = True
-                        # The vehicle stops *at* the collision point (the intersection cell)
-                        new_vehicles_state[vehicle]["pos"] = self.intersection_cell
+                        # The vehicle stops *at* the collision point (inside the intersection)
+                        # Place them at the start of the intersection zone
+                        new_vehicles_state[vehicle]["pos"] = self.intersection_start
                         new_vehicles_state[vehicle]["vel"] = 0
 
         # --- PHASE 3: Apply Final State and Update Grid ---
 
         # Clear the grid for the new time step
-        self.grid = {r: {l: [None] * self.L for l in Lane} for r in Road}
+        self.grid = {r: {l: [None] * self.L_TOTAL for l in Lane} for r in Road}
 
         vehicles_to_remove = []
 
@@ -264,7 +297,7 @@ class IntersectionModel:
             if vehicle.collided:
                 vehicle.velocity = 0  # Ensure velocity is 0
                 # If the collided vehicle is still on the board, place it
-                if final_pos < self.L:
+                if final_pos < self.L_TOTAL:
                     vehicle.position = final_pos
                     # Place it in the grid so it blocks traffic
                     self.grid[vehicle.road][vehicle.lane][final_pos] = vehicle
@@ -272,7 +305,7 @@ class IntersectionModel:
                     # Collided vehicle at or beyond road end - remove it
                     vehicles_to_remove.append(vehicle)
 
-            elif final_pos >= self.L:
+            elif final_pos >= self.L_TOTAL:
                 # Vehicle successfully completed the road and leaves the system
                 vehicles_to_remove.append(vehicle)
 
@@ -294,15 +327,8 @@ class IntersectionModel:
         for _ in range(steps):
             self.update_traffic_light()
             self.inject_vehicle()
-            self.apply_nash_rules()
+            self.apply_nasch_rules()
 
-            # # print all vehicles' positions and velocities
-            # for vehicle in self.vehicles:
-            #     print(
-            #         f"Time {self.time_step}: Vehicle {vehicle.id} on {vehicle.road.name}-{vehicle.lane.name} at pos {vehicle.position} with vel {vehicle.velocity} {'[COLLIDED]' if vehicle.collided else ''}"
-            #     )
-
-            # time.sleep(5)
             # In a real run, you'd collect data here
         print("--- Simulation complete ---")
 
@@ -313,35 +339,71 @@ class IntersectionModel:
             "N_rear_end": self.N_rear_end,
             "N_vehicles": self.N_vehicles,
             "Throughput": self.throughput,
-            "Accident_Ratio_Lateral_to_RearEnd": self.N_lateral
-            / (self.N_rear_end + 1e-6),  # Avoid div by zero
+            "Lateral_to_rearend_ratio": (
+                self.N_lateral / self.N_rear_end if self.N_rear_end > 0 else 0
+            ),
         }
 
     def print_road_state(self):
-        """Prints the current state of the roads for debugging."""
+        """Prints the current state of the roads for debugging with intersection highlighted."""
+        print(f"\n{'='*80}")
+        print(f"Time Step: {self.time_step}")
+        print(
+            f"Traffic Lights - R1: {self.traffic_light[Road.R1].name}, R2: {self.traffic_light[Road.R2].name}"
+        )
+        print(f"{'='*80}")
+
         for road in Road:
-            print(f"--- Road {road.name} ---")
+            print(f"\n--- Road {road.name} ---")
             for lane in Lane:
                 lane_state = ""
-                for cell in self.grid[road][lane]:
+                for i, cell in enumerate(self.grid[road][lane]):
+                    # Mark intersection zone
+                    if i == self.intersection_start:
+                        lane_state += "| "  # Start of intersection
+
                     if cell is None:
                         lane_state += ". "
                     else:
-                        lane_state += f"{cell.velocity} " if not cell.collided else "X "
-                print(f"Lane {lane.name}: {lane_state}")
-        print("-----------------------")
+                        lane_state += (
+                            f"{cell.velocity} "
+                            if not cell.collided
+                            else f"X-{cell.velocity} "
+                        )
+
+                    if i == self.intersection_end - 1:
+                        lane_state += "| "  # End of intersection
+
+                # Add position markers
+                position_markers = ""
+                for i in range(self.L_TOTAL):
+                    if i == self.intersection_start:
+                        position_markers += "| "
+                    position_markers += f"{i%10} "
+                    if i == self.intersection_end - 1:
+                        position_markers += "| "
+
+                print(f"Lane {lane.name:5}: {lane_state}")
+                if lane == Lane.RIGHT:  # Print markers only once per road
+                    print(f"{'':11} {position_markers}")
+
+        print(f"\n{'='*80}\n")
 
     def print_intersection(self):
         """Prints the state of the intersection area for debugging."""
         print(f"--- Intersection State at time {self.time_step} ---")
+        print(
+            f"Intersection zone: cells [{self.intersection_start}, {self.intersection_end})"
+        )
         for road in Road:
+            print(f"\nRoad {road.name} (Light: {self.traffic_light[road].name}):")
             for lane in Lane:
-                cell = self.grid[road][lane][self.intersection_cell]
-                if cell is None:
-                    status = "Empty"
-                else:
-                    status = (
-                        f"Vehicle {cell.id} {'[COLLIDED]' if cell.collided else ''}"
-                    )
-                print(f"Road {road.name} Lane {lane.name}: {status}")
+                print(f"  Lane {lane.name}:")
+                for i in range(self.intersection_start, self.intersection_end):
+                    cell = self.grid[road][lane][i]
+                    if cell is None:
+                        status = "Empty"
+                    else:
+                        status = f"Vehicle {cell.id} (v={cell.velocity}) {'[COLLIDED]' if cell.collided else ''}"
+                    print(f"    Cell {i}: {status}")
         print("-----------------------------------------")

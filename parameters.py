@@ -33,7 +33,7 @@ class ModelParameters:
 NORMAL_PARAMS = ModelParameters(
     p_b=0.1,  # Random Braking Probability (NaSch)
     p_chg=0.8,  # Lane Change Probability
-    p_red=0.1,  # Red Light Violation Probability
+    p_red=0.001,  # Red Light Violation Probability
     p_skid=0.05,  # Braking Failure Probability (Rear-end collision)
     weather=Weather.NORMAL,
 )
