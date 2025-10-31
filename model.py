@@ -210,32 +210,32 @@ class IntersectionModel:
             if v_new > d_i:
                 # Braking is necessary. Check if the braking fails.
                 if random.random() < vehicle.p_skid:
-                    # **Braking Failure (Collision)!** 
-                    is_rear_end_collision = True
-                    self.N_rear_end += 1
-                    vehicle.collided = True
                     front_vehicle = self.find_front_vehicle(vehicle)
-                    if front_vehicle:
+                    if front_vehicle and v_new <= front_vehicle.velocity + d_i:
                         front_vehicle.collided = True  # The car in front is also hit
 
-                    # The vehicle fails to slow down and hits the car in front.
-                    # Its new position will be the cell *behind* the front car.
-                    new_pos = vehicle.position + d_i 
-                    v_new = 0 # Velocity becomes 0 *after* the collision
+                        is_rear_end_collision = True
+                        self.N_rear_end += 1
+                        vehicle.collided = True
+
+                        # The vehicle fails to slow down and hits the car in front.
+                        # Its new position will be the cell *behind* the front car.
+                        new_pos = vehicle.position + d_i
+                        v_new = 0  # Velocity becomes 0 *after* the collision
                 else:
                     # **Braking Success (NaSch Rule 2)**
                     # The driver brakes successfully, apply standard deceleration.
                     v_new = d_i
-            
+
             # --- Apply other rules ONLY if no rear-end collision occurred ---
             if not is_rear_end_collision:
-                
+
                 # --- Intersection Logic (Part of Deceleration) ---
                 gap_to_intersection = self.intersection_start - vehicle.position - 1
                 if self.traffic_light[vehicle.road] == TrafficLightState.RED:
                     if v_new > gap_to_intersection:
                         if random.random() < vehicle.p_red:
-                            # Intent to violate red light 
+                            # Intent to violate red light
                             pass
                         else:
                             # Intent to stop
@@ -244,7 +244,7 @@ class IntersectionModel:
                 # --- NaSch Rules 3 (Randomization) ---
                 if v_new > 0 and random.random() < self.P_B:
                     v_new -= 1
-                
+
                 # --- Car Motion (Intended) ---
                 new_pos = vehicle.position + v_new
 
