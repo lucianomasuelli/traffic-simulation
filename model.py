@@ -199,69 +199,64 @@ class IntersectionModel:
             # d_i is the gap to the *next vehicle*
             d_i = self.find_front_gap(vehicle)
 
+            # --- MODIFIED: Rear-End Collision Flag ---
+            is_rear_end_collision = False
+
             # --- NaSch Rules 1 (Acceleration) ---
             v_new = min(v_i + 1, vehicle.v_max)
 
-            # --- NaSch Rules 2 (Deceleration - Car Ahead) ---
-            # Slow down to avoid hitting the car in front
-            v_new = min(v_new, d_i)
+            # --- P_skid (Braking Failure Check) ---
+            # This check now happens *before* NaSch Rule 2 is applied.
+            if v_new > d_i:
+                # Braking is necessary. Check if the braking fails.
+                if random.random() < vehicle.p_skid:
+                    # **Braking Failure (Collision)!** 
+                    is_rear_end_collision = True
+                    self.N_rear_end += 1
+                    vehicle.collided = True
+                    front_vehicle = self.find_front_vehicle(vehicle)
+                    if front_vehicle:
+                        front_vehicle.collided = True  # The car in front is also hit
 
-            # --- Intersection Logic (Part of Deceleration) ---
-            # g_i is the gap to the *intersection stop line*
-            gap_to_intersection = self.intersection_start - vehicle.position - 1
+                    # The vehicle fails to slow down and hits the car in front.
+                    # Its new position will be the cell *behind* the front car.
+                    new_pos = vehicle.position + d_i 
+                    v_new = 0 # Velocity becomes 0 *after* the collision
+                else:
+                    # **Braking Success (NaSch Rule 2)**
+                    # The driver brakes successfully, apply standard deceleration.
+                    v_new = d_i
+            
+            # --- Apply other rules ONLY if no rear-end collision occurred ---
+            if not is_rear_end_collision:
+                
+                # --- Intersection Logic (Part of Deceleration) ---
+                gap_to_intersection = self.intersection_start - vehicle.position - 1
+                if self.traffic_light[vehicle.road] == TrafficLightState.RED:
+                    if v_new > gap_to_intersection:
+                        if random.random() < vehicle.p_red:
+                            # Intent to violate red light [cite: 833]
+                            pass
+                        else:
+                            # Intent to stop
+                            v_new = max(0, gap_to_intersection)
 
-            # Check if vehicle is approaching a RED light
-            if self.traffic_light[vehicle.road] == TrafficLightState.RED:
-                # If the car is close enough to cross on its next move...
-                # (v_new > gap_to_intersection) means its intended speed will cross the line
-                if v_new > gap_to_intersection:
-                    # **NEW LOGIC: Decide whether to violate the red light**
-                    if random.random() < vehicle.p_red:
-                        # **INTENT TO VIOLATE RED LIGHT**
-                        # The vehicle *ignores* the red light.
-                        # v_new remains as calculated (limited only by car ahead)
-                        pass
-                    else:
-                        # **INTENT TO STOP**
-                        # Decelerate to stop *before* the intersection
-                        v_new = max(0, gap_to_intersection)  # Stop at the line
-
-            # --- NaSch Rules 3 (Randomization) ---
-            if v_new > 0 and random.random() < self.P_B:  # P_B is modified by rain
-                v_new -= 1
-
-            # --- Braking Failure Check (Rear-End Collision) ---
-            # If the car's *final* velocity (after rules) is *still* greater than
-            # the gap to the car in front, a skid (braking failure) might occur.
-            if v_new > d_i and random.random() < vehicle.p_skid:
-                # Collision occurs!
-                self.N_rear_end += 1
-                vehicle.collided = True
-                front_vehicle = self.find_front_vehicle(vehicle)
-                if front_vehicle:
-                    front_vehicle.collided = True  # The car in front is also hit
-
-                # Stop at the collision point (cell behind the front car)
-                v_new = 0
-                new_pos = vehicle.position + d_i
-            else:
+                # --- NaSch Rules 3 (Randomization) ---
+                if v_new > 0 and random.random() < self.P_B:
+                    v_new -= 1
+                
                 # --- Car Motion (Intended) ---
-                # This is the normal, collision-free movement
-                v_new = min(v_new, d_i)  # Final safety check
                 new_pos = vehicle.position + v_new
 
             # Store the intended move
             new_vehicles_state[vehicle] = {"pos": new_pos, "vel": v_new}
 
             # --- Check if this move enters the intersection ---
-            # A vehicle enters if its old pos was *before* and new pos is *at or after* intersection start
             if (
                 vehicle.position < self.intersection_start <= new_pos
                 and not vehicle.collided
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
-                # Increment throughput for vehicles passing through the intersection
-                self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
 
