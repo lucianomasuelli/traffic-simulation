@@ -258,6 +258,9 @@ class IntersectionModel:
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
 
+            # Increment throughput for vehicles passing through the intersection
+            self.throughput += 1
+
         # --- PHASE 2: Check for Lateral Collisions ---
 
         # **NEW LOGIC: If *both* roads have vehicles entering the intersection...**
