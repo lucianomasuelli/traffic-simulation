@@ -235,7 +235,7 @@ class IntersectionModel:
                 if self.traffic_light[vehicle.road] == TrafficLightState.RED:
                     if v_new > gap_to_intersection:
                         if random.random() < vehicle.p_red:
-                            # Intent to violate red light [cite: 833]
+                            # Intent to violate red light 
                             pass
                         else:
                             # Intent to stop
@@ -258,8 +258,8 @@ class IntersectionModel:
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
 
-            # Increment throughput for vehicles passing through the intersection
-            self.throughput += 1
+                # Increment throughput for vehicles passing through the intersection
+                self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
 
