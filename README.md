@@ -56,8 +56,10 @@ This simulation models a two-road intersection with traffic lights, where vehicl
 ├── model.py            # IntersectionModel - main simulation engine
 ├── dispatcher.py       # SimulationDispatcher for parallel execution
 ├── logger.py           # CSVLogger for results storage
+├── visualizer.py       # TrafficSimulationVisualizer for matplotlib animations
 ├── main.py             # Entry point for batch simulations
 ├── single_sim.py       # Entry point for single simulation runs
+├── run_visualization.py # Entry point for visualization
 ├── main.ipynb          # Jupyter notebook for interactive analysis
 ├── pyproject.toml      # Project dependencies and metadata
 └── README.md           # This file
@@ -105,6 +107,15 @@ Data persistence:
 - **Automatic header management**: Creates file structure on first use
 - **Append mode**: Supports incremental result collection
 
+#### `visualizer.py`
+
+Matplotlib animation visualization:
+
+- **TrafficSimulationVisualizer**: Displays the simulation as an animated 2D grid
+- **Real-time visualization**: Shows vehicles moving, traffic lights changing, and collisions occurring
+- **Grid representation**: Perpendicular two-lane roads with cars as black cells
+- **Export capability**: Save animations as GIF or MP4 files
+
 ## Setup
 
 This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable Python package management.
@@ -122,6 +133,84 @@ uv sync
 ```
 
 ## Usage
+
+### Visualization
+
+**NEW!** Visualize the simulation in real-time with matplotlib animation:
+
+```bash
+uv run run_visualization.py
+```
+
+This will open a matplotlib window showing:
+
+- **Two perpendicular roads** (R1: vertical, R2: horizontal) as intersecting grids
+- **Vehicles as black cells** moving along their lanes (red cells indicate collided vehicles)
+- **Traffic lights** with color indicators (green/red)
+- **Intersection zone** highlighted in yellow
+- **Real-time statistics**: vehicle count, collisions, throughput
+
+**Customize visualization parameters:**
+
+```python
+from visualizer import create_and_run_visualization
+
+create_and_run_visualization(
+    length=80,           # Road length (shorter for better visibility)
+    vmax=5,              # Maximum velocity
+    t_green=30,          # Green light duration
+    injection_rate=0.2,  # Vehicle injection rate
+    p_b=0.1,             # Random braking probability
+    p_red=0.05,          # Red light violation probability
+    p_skid=0.05,         # Braking failure probability
+    frames=500,          # Number of simulation steps to animate
+    interval=50,         # Milliseconds between frames (50ms = 20 fps)
+    save_path=None       # Set to 'animation.gif' to save
+)
+```
+
+**Save animation to file:**
+
+```python
+# Save as GIF
+create_and_run_visualization(
+    length=80,
+    vmax=5,
+    t_green=30,
+    injection_rate=0.2,
+    frames=500,
+    interval=100,
+    save_path='traffic_animation.gif'
+)
+
+# Save as MP4 (requires ffmpeg)
+create_and_run_visualization(
+    length=80,
+    vmax=5,
+    t_green=30,
+    injection_rate=0.2,
+    frames=500,
+    interval=100,
+    save_path='traffic_animation.mp4'
+)
+```
+
+**In Jupyter Notebook:**
+
+```python
+from model import IntersectionModel
+from parameters import ModelParameters
+from visualizer import TrafficSimulationVisualizer
+
+# Note: Use %matplotlib notebook or %matplotlib widget for interactive display
+
+params = ModelParameters(p_b=0.1, p_chg=0.8, p_red=0.05, p_skid=0.05)
+model = IntersectionModel(length=80, vmax=5, t_green=30,
+                         injection_rate=0.2, params=params)
+
+visualizer = TrafficSimulationVisualizer(model, interval=50)
+anim = visualizer.animate(frames=500)
+```
 
 ### Single Simulation
 
