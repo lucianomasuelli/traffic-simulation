@@ -297,6 +297,7 @@ def create_and_run_visualization(
     p_chg: float = 0.8,
     p_red: float = 0.01,
     p_skid: float = 0.01,
+    allow_lane_changes: bool = True,
     frames: int = 500,
     interval: int = 100,
     save_path: str = None,
@@ -320,7 +321,13 @@ def create_and_run_visualization(
     from parameters import ModelParameters
 
     # Create model
-    params = ModelParameters(p_b=p_b, p_chg=p_chg, p_red=p_red, p_skid=p_skid)
+    params = ModelParameters(
+        p_b=p_b,
+        p_chg=p_chg,
+        p_red=p_red,
+        p_skid=p_skid,
+        allow_lane_changes=allow_lane_changes,
+    )
     model = IntersectionModel(
         length=length,
         vmax=vmax,

@@ -13,13 +13,13 @@ if __name__ == "__main__":
 
     # Run visualization with custom parameters
     create_and_run_visualization(
-        length=80,  # Road length (shorter for better visibility)
-        vmax=5,  # Maximum velocity
-        t_green=30,  # Green light duration
-        injection_rate=0.2,  # Vehicle injection rate (higher for more traffic)
+        length=100,  # Road length (shorter for better visibility)
+        vmax=2,  # Maximum velocity
+        t_green=20,  # Green light duration
+        injection_rate=0.3,  # Vehicle injection rate (higher for more traffic)
         p_b=0.1,  # Random braking probability
         p_chg=0.8,  # Lane change probability
-        p_red=0.05,  # Red light violation probability
+        p_red=0.1,  # Red light violation probability
         p_skid=0.05,  # Braking failure probability
         frames=1000,  # Number of simulation steps
         interval=50,  # Milliseconds between frames (50ms = 20 fps)

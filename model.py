@@ -1,6 +1,7 @@
 import random
 from entities import Road, Lane, TrafficLightState, Vehicle
 from parameters import ModelParameters
+from typing import Tuple
 import time
 
 # ----------------------------------------------------
@@ -44,6 +45,7 @@ class IntersectionModel:
         self.P_CHG = params.p_chg
         self.P_RED = params.p_red
         self.P_SKID = params.p_skid
+        self.lane_changing_enabled = params.allow_lane_changes
 
         # Intersection dimensions
         self.INTERSECTION_SIZE = (
@@ -134,18 +136,29 @@ class IntersectionModel:
                 return road[i]
         return None  # No vehicle found
 
-    def find_front_gap(self, vehicle: Vehicle) -> int:
+    def find_front_gap(
+        self, vehicle: Vehicle, road: Road = None, lane: Lane = None
+    ) -> Tuple[int, str]:
         """
         Calculates the distance (gap) to the vehicle ahead.
         This is the number of empty cells *between* this car and the next one.
         If no vehicle is ahead, returns a large value (effectively infinite gap).
         Also considers the intersection stop line as a barrier if the light is red.
+
+        The second output indicates why the gap is limited
+
+        Args:
+            vehicle: The vehicle for which to calculate the gap
+            road: Optional road to check (defaults to vehicle's current road)
+            lane: Optional lane to check (defaults to vehicle's current lane)
         """
-        road = self.grid[vehicle.road][vehicle.lane]
+        target_road = road if road is not None else vehicle.road
+        target_lane = lane if lane is not None else vehicle.lane
+        road_grid = self.grid[target_road][target_lane]
 
         # Check if there's a red light ahead and vehicle hasn't passed the intersection yet
         if (
-            self.traffic_light[vehicle.road] == TrafficLightState.RED
+            self.traffic_light[target_road] == TrafficLightState.RED
             and vehicle.position < self.intersection_start
         ):
             # Gap to the stop line (position before intersection)
@@ -153,38 +166,146 @@ class IntersectionModel:
 
             # Check for vehicles between current position and intersection
             for i in range(vehicle.position + 1, self.intersection_start):
-                if road[i] is not None:
+                if road_grid[i] is not None:
                     # Found a vehicle before the intersection
-                    return i - vehicle.position - 1
+                    return i - vehicle.position - 1, "vehicle"
 
             if gap_to_intersection == 0:
-                return 0  # Already at the stop line
+                return 0, "red_light"
 
             if random.random() < vehicle.p_red:
                 # Vehicle decides to violate the red light
-                print(
-                    f"Vehicle {vehicle.id} decides to violate red light at time {self.time_step}"
-                )
-                return self.L_TOTAL * 2
+                return self.L_TOTAL * 2, "empty"
             else:
-                return gap_to_intersection
+                return gap_to_intersection, "red_light"
 
         # Normal case: look for vehicles ahead (either green light or already past intersection)
         # Iterate from the cell in front of the vehicle to the end
         for i in range(vehicle.position + 1, self.L_TOTAL):
+            if road_grid[i] is not None:
+                # Found a vehicle, gap is distance to it
+                return i - vehicle.position - 1, "vehicle"
+
+        return self.L_TOTAL * 2, "empty"
+
+    def find_back_gap(self, vehicle: Vehicle, lane: Lane = None) -> int:
+        """
+        Calculates the distance (gap) to the vehicle behind in the specified lane.
+        This is the number of empty cells *between* this car and the one behind.
+        If no vehicle is behind, returns a large value.
+
+        Args:
+            vehicle: The vehicle for which to calculate the gap
+            lane: Optional lane to check (defaults to vehicle's current lane)
+        """
+        target_lane = lane if lane is not None else vehicle.lane
+        road = self.grid[vehicle.road][target_lane]
+
+        # Iterate from the cell behind the vehicle to the start
+        for i in range(vehicle.position - 1, -1, -1):
             if road[i] is not None:
                 # Found a vehicle, gap is distance to it
-                return i - vehicle.position - 1
+                return vehicle.position - i - 1
 
-        return self.L_TOTAL * 2  # Large enough gap to not limit velocity
+        return self.L_TOTAL * 2  # No vehicle found
+
+    def get_other_lane(self, lane: Lane) -> Lane:
+        """Returns the opposite lane."""
+        return Lane.RIGHT if lane == Lane.LEFT else Lane.LEFT
+
+    def can_change_lane(self, vehicle: Vehicle) -> bool:
+        """
+        Checks if a lane change is safe and advantageous for the vehicle.
+
+        Safety conditions:
+        1. No vehicle in the target cell (same position in other lane)
+        2. No vehicle behind in other lane can crash into us
+
+        Advantageous condition:
+        1. The front gap in the other lane is larger than in current lane
+
+        Returns:
+            True if lane change is safe and advantageous, False otherwise
+        """
+        other_lane = self.get_other_lane(vehicle.lane)
+        other_lane_grid = self.grid[vehicle.road][other_lane]
+
+        # Safety check 1: Cell at same position must be empty
+        if other_lane_grid[vehicle.position] is not None:
+            return False
+
+        # Safety check 2: Check vehicles behind in the other lane
+        back_gap_other = self.find_back_gap(vehicle, lane=other_lane)
+
+        # Find the vehicle behind in the other lane
+        for i in range(vehicle.position - 1, -1, -1):
+            if other_lane_grid[i] is not None:
+                vehicle_behind = other_lane_grid[i]
+                # Check if that vehicle could crash into us
+                # The vehicle behind is safe if its velocity is less than or equal to the gap
+                if vehicle_behind.velocity > back_gap_other:
+                    return False
+                break
+
+        # Advantageous check: Compare front gaps
+        current_gap, current_reason = self.find_front_gap(vehicle)
+        other_gap, other_reason = self.find_front_gap(vehicle, lane=other_lane)
+
+        # Only change if other lane has a better gap
+        return other_gap > current_gap
+
+    def attempt_lane_change(
+        self,
+        vehicle: Vehicle,
+    ):
+        """
+        Attempts to change lane for a vehicle if conditions are met.
+        This should be called before velocity calculations.
+
+        Args:
+            vehicle: The vehicle attempting to change lanes
+        """
+        # Only attempt lane change if enabled
+        if not self.lane_changing_enabled:
+            return
+
+        # Don't change lanes if already collided
+        if vehicle.collided:
+            return
+
+        # Check current front gap and reason
+        _, reason = self.find_front_gap(vehicle)
+
+        # Only consider lane change if blocked by a vehicle
+        if reason != "vehicle":
+            return
+
+        # Check if lane change is safe and advantageous
+        if self.can_change_lane(vehicle):
+            # Perform the lane change
+            other_lane = self.get_other_lane(vehicle.lane)
+
+            # Remove from current lane
+            self.grid[vehicle.road][vehicle.lane][vehicle.position] = None
+
+            # Update vehicle's lane
+            vehicle.lane = other_lane
+
+            # Place in new lane
+            self.grid[vehicle.road][other_lane][vehicle.position] = vehicle
 
     def apply_nasch_rules(self):
         """
-        Applies the NaSch update rules and collision logic in three phases:
+        Applies the NaSch update rules and collision logic in four phases:
+        0. Lane Changing: Evaluate and perform lane changes if advantageous (if enabled).
         1. Calculation: Determine intended moves.
         2. Collision Check: Detect and resolve lateral and rear-end collisions.
         3. Update: Apply final moves to the grid.
         """
+
+        if self.lane_changing_enabled:
+            for vehicle in self.vehicles:
+                self.attempt_lane_change(vehicle)
 
         # Stores the intended state {'pos': int, 'vel': int} for each vehicle
         new_vehicles_state = {}
@@ -194,7 +315,7 @@ class IntersectionModel:
         # --- PHASE 1: Calculate intended moves for all vehicles ---
         for vehicle in self.vehicles:
             v_i = vehicle.velocity
-            d_i = self.find_front_gap(vehicle)
+            d_i, reason = self.find_front_gap(vehicle)
 
             # --- Rule 1 (acceleration) ---
             v_new = min(v_i + 1, vehicle.v_max)
