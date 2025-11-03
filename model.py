@@ -157,12 +157,16 @@ class IntersectionModel:
                     # Found a vehicle before the intersection
                     return i - vehicle.position - 1
 
-            # No vehicle found before intersection, but red light acts as barrier
-            # Return gap to stop line
+            if gap_to_intersection == 0:
+                return 0  # Already at the stop line
 
-            # Check probability of red light violation
             if random.random() < vehicle.p_red:
                 # Vehicle decides to violate the red light
+                print(
+                    f"Vehicle {vehicle.id} decides to violate red light at time {self.time_step}"
+                )
+                return self.L_TOTAL * 2
+            else:
                 return gap_to_intersection
 
         # Normal case: look for vehicles ahead (either green light or already past intersection)
@@ -188,67 +192,41 @@ class IntersectionModel:
         intersection_entrants = {Road.R1: [], Road.R2: []}
 
         # --- PHASE 1: Calculate intended moves for all vehicles ---
-
         for vehicle in self.vehicles:
-            # if vehicle.collided:
-            #     # If already collided, it doesn't move
-            #     new_vehicles_state[vehicle] = {"pos": vehicle.position, "vel": 0}
-            #     continue
-
             v_i = vehicle.velocity
-            # d_i is the gap to the *next vehicle*
             d_i = self.find_front_gap(vehicle)
 
-            # --- MODIFIED: Rear-End Collision Flag ---
-            is_rear_end_collision = False
-
-            # --- NaSch Rules 1 (Acceleration) ---
+            # --- Rule 1 (acceleration) ---
             v_new = min(v_i + 1, vehicle.v_max)
 
-            # --- P_skid (Braking Failure Check) ---
-            # This check now happens *before* NaSch Rule 2 is applied.
+            # --- Rule 2 (safety distance) ---
             if v_new > d_i:
-                # Braking is necessary. Check if the braking fails.
-                if random.random() < vehicle.p_skid:
-                    front_vehicle = self.find_front_vehicle(vehicle)
-                    if front_vehicle and v_new <= front_vehicle.velocity + d_i:
-                        front_vehicle.collided = True  # The car in front is also hit
+                front_vehicle = self.find_front_vehicle(vehicle)
+                ## -- CASE A: there is a vehicle in front, check for braking failure -- ##
+                if (
+                    front_vehicle
+                    and v_new <= front_vehicle.velocity + d_i
+                    and random.random() < vehicle.p_skid
+                ):
+                    front_vehicle.collided = True
 
-                        is_rear_end_collision = True
-                        self.N_rear_end += 1
-                        vehicle.collided = True
+                    self.N_rear_end += 1
+                    vehicle.collided = True
 
-                        # The vehicle fails to slow down and hits the car in front.
-                        # Its new position will be the cell *behind* the front car.
-                        new_pos = vehicle.position + d_i
-                        v_new = 0  # Velocity becomes 0 *after* the collision
+                    # The vehicle fails to slow down and hits the car in front.
+                    # Its new position will be the cell *behind* the front car.
+                    new_pos = vehicle.position + d_i
+                    v_new = 0
+
+                ## -- CASE B: If the gap is too small and there is no vehicle, it means we reached the intersection
                 else:
-                    # **Braking Success (NaSch Rule 2)**
-                    # The driver brakes successfully, apply standard deceleration.
                     v_new = d_i
 
-            # --- Apply other rules ONLY if no rear-end collision occurred ---
-            if not is_rear_end_collision:
+            # --- Rule 3 (random braking) ---
+            if v_new > 0 and random.random() < self.P_B:
+                v_new -= 1
 
-                # --- Intersection Logic (Part of Deceleration) ---
-                gap_to_intersection = self.intersection_start - vehicle.position - 1
-                if self.traffic_light[vehicle.road] == TrafficLightState.RED:
-                    if v_new > gap_to_intersection:
-                        if random.random() < vehicle.p_red:
-                            # Intent to violate red light
-                            pass
-                        else:
-                            # Intent to stop
-                            v_new = max(0, gap_to_intersection)
-
-                # --- NaSch Rules 3 (Randomization) ---
-                if v_new > 0 and random.random() < self.P_B:
-                    v_new -= 1
-
-                # --- Car Motion (Intended) ---
-                new_pos = vehicle.position + v_new
-
-            # Store the intended move
+            new_pos = vehicle.position + v_new
             new_vehicles_state[vehicle] = {"pos": new_pos, "vel": v_new}
 
             # --- Check if this move enters the intersection ---
@@ -257,15 +235,10 @@ class IntersectionModel:
                 and not vehicle.collided
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
-
-                # Increment throughput for vehicles passing through the intersection
                 self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
-
-        # **NEW LOGIC: If *both* roads have vehicles entering the intersection...**
         if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
-            # print the state of the roads if there is a lateral collision
             self.N_lateral += 1
 
             # Mark ALL vehicles entering the intersection as collided
@@ -273,7 +246,7 @@ class IntersectionModel:
             # Vehicles stopped before the intersection are safe
             for road_entrants in intersection_entrants.values():
                 for vehicle in road_entrants:
-                    if not vehicle.collided:  # Don't re-collide a rear-ended car
+                    if not vehicle.collided:
                         vehicle.collided = True
                         # The vehicle stops *at* the collision point (inside the intersection)
                         # Place them at the start of the intersection zone
@@ -281,8 +254,6 @@ class IntersectionModel:
                         new_vehicles_state[vehicle]["vel"] = 0
 
         # --- PHASE 3: Apply Final State and Update Grid ---
-
-        # Clear the grid for the new time step
         self.grid = {r: {l: [None] * self.L_TOTAL for l in Lane} for r in Road}
 
         vehicles_to_remove = []
@@ -293,7 +264,7 @@ class IntersectionModel:
             final_vel = new_vehicles_state[vehicle]["vel"]
 
             if vehicle.collided:
-                vehicle.velocity = 0  # Ensure velocity is 0
+                vehicle.velocity = 0
                 # If the collided vehicle is still on the board, place it
                 if final_pos < self.L_TOTAL:
                     vehicle.position = final_pos
@@ -316,6 +287,11 @@ class IntersectionModel:
         # Remove vehicles that have left the road
         for vehicle in vehicles_to_remove:
             self.vehicles.remove(vehicle)
+
+            # remove vehicles from intersection entrants if they were marked
+            for road in intersection_entrants:
+                if vehicle in intersection_entrants[road]:
+                    intersection_entrants[road].remove(vehicle)
 
         self.time_step += 1
 
