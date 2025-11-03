@@ -322,24 +322,27 @@ class IntersectionModel:
 
             # --- Rule 2 (safety distance) ---
             if v_new > d_i:
-                front_vehicle = self.find_front_vehicle(vehicle)
                 ## -- CASE A: there is a vehicle in front, check for braking failure -- ##
-                if (
-                    front_vehicle
-                    and v_new <= front_vehicle.velocity + d_i
-                    and random.random() < vehicle.p_skid
-                ):
-                    front_vehicle.collided = True
+                # Only check for rear-end collision if the gap is limited by a vehicle, not by a red light
+                if reason == "vehicle":
+                    front_vehicle = self.find_front_vehicle(vehicle)
+                    if (
+                        front_vehicle
+                        and v_new <= front_vehicle.velocity + d_i
+                        and random.random() < vehicle.p_skid
+                    ):
+                        front_vehicle.collided = True
 
-                    self.N_rear_end += 1
-                    vehicle.collided = True
+                        self.N_rear_end += 1
+                        vehicle.collided = True
 
-                    # The vehicle fails to slow down and hits the car in front.
-                    # Its new position will be the cell *behind* the front car.
-                    new_pos = vehicle.position + d_i
-                    v_new = 0
-
-                ## -- CASE B: If the gap is too small and there is no vehicle, it means we reached the intersection
+                        # The vehicle fails to slow down and hits the car in front.
+                        # Its new position will be the cell *behind* the front car.
+                        new_pos = vehicle.position + d_i
+                        v_new = 0
+                    else:
+                        v_new = d_i
+                ## -- CASE B: Gap is limited by red light or end of road, just slow down
                 else:
                     v_new = d_i
 
