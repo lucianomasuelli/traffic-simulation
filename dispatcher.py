@@ -34,6 +34,7 @@ class SimulationConfig:
 
     # Simulation parameters
     steps: int = 100000
+    metrics_start_step: int = 0
 
     # Optional identifier
     config_id: Optional[int] = None
@@ -73,6 +74,7 @@ def run_single_simulation(config: SimulationConfig) -> Dict[str, Any]:
         t_green=config.t_green,
         injection_rate=config.injection_rate,
         params=params,
+        metrics_start_step=config.metrics_start_step,
     )
 
     model.run_simulation(steps=config.steps)
@@ -205,6 +207,7 @@ def generate_parameter_grid(
     p_skid_values: List[float],
     allow_lane_changes: List[bool] = [True],
     steps: int = 100000,
+    metrics_start_step: int = 0,
 ) -> List[SimulationConfig]:
     """
     Generate a grid of all parameter combinations.
@@ -212,6 +215,7 @@ def generate_parameter_grid(
     Args:
         *_values: Lists of values for each parameter
         steps: Number of simulation steps
+        metrics_start_step: Time step at which to start recording metrics
 
     Returns:
         List of SimulationConfig objects
@@ -250,6 +254,7 @@ def generate_parameter_grid(
             p_red=p_red,
             p_skid=p_skid,
             steps=steps,
+            metrics_start_step=metrics_start_step,
             config_id=config_id,
             allow_lane_changes=allow_lane_changes,
         )

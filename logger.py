@@ -36,6 +36,7 @@ class CSVLogger:
             "p_red",
             "p_skid",
             "steps",
+            "metrics_start_step",
             # Metrics
             "n_lateral",
             "n_rear_end",

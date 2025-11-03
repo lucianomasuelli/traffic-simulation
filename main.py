@@ -32,7 +32,8 @@ if __name__ == "__main__":
         p_chg_values=[0.4, 0.8],
         p_red_values=[0.001, 0.01, 0.05],
         p_skid_values=[0.05, 0.1],
-        steps=100000,
+        steps=10000,
+        metrics_start_step=5000,
     )
 
     # Create dispatcher with multiprocessing enabled

@@ -22,6 +22,7 @@ class IntersectionModel:
         t_green: int,
         injection_rate: float,
         params: ModelParameters,
+        metrics_start_step: int = 0,
     ):
         """
         Initialize the intersection model.
@@ -32,12 +33,14 @@ class IntersectionModel:
             t_green: Green light period (time steps)
             injection_rate: Probability of vehicle injection
             params: Model parameters (p_b, p_chg, p_red, p_skid)
+            metrics_start_step: Time step at which to start recording metrics (default: 0)
         """
         # Simulation Parameters
         self.L = length
         self.V_MAX_BASE = vmax  # Base max velocity for new vehicles
         self.T_GREEN = t_green
         self.INJECTION_RATE = injection_rate
+        self.metrics_start_step = metrics_start_step
 
         # Model parameters
         self.params = params
@@ -87,6 +90,10 @@ class IntersectionModel:
         self.intersection_start = self.L // 2
         self.intersection_end = self.intersection_start + self.INTERSECTION_SIZE
 
+    def should_record_metrics(self) -> bool:
+        """Check if the current timestep should record metrics."""
+        return self.time_step >= self.metrics_start_step
+
     def update_traffic_light(self):
         """Updates the traffic light state every T_GREEN time steps."""
         # Full cycle T = 2 * T_GREEN
@@ -129,7 +136,8 @@ class IntersectionModel:
 
         # Increment vehicle ID counter
         self.next_vehicle_id += 1
-        self.N_vehicles += 1
+        if self.should_record_metrics():
+            self.N_vehicles += 1
 
         # Add vehicle to the grid and vehicle list
         self.grid[road][lane][0] = new_vehicle
@@ -341,7 +349,8 @@ class IntersectionModel:
                     ):
                         front_vehicle.collided = True
 
-                        self.N_rear_end += 1
+                        if self.should_record_metrics():
+                            self.N_rear_end += 1
                         vehicle.collided = True
 
                         # The vehicle fails to slow down and hits the car in front.
@@ -367,11 +376,13 @@ class IntersectionModel:
                 and not vehicle.collided
             ):
                 intersection_entrants[vehicle.road].append(vehicle)
-                self.throughput += 1
+                if self.should_record_metrics():
+                    self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
         if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
-            self.N_lateral += 1
+            if self.should_record_metrics():
+                self.N_lateral += 1
 
             # Mark ALL vehicles entering the intersection as collided
             # Only vehicles that actually entered (violators) should collide
@@ -412,9 +423,10 @@ class IntersectionModel:
                 distance_traveled = self.L_TOTAL
 
                 # Update travel time metrics
-                self.total_travel_time += travel_time
-                self.total_distance_traveled += distance_traveled
-                self.completed_vehicles += 1
+                if self.should_record_metrics():
+                    self.total_travel_time += travel_time
+                    self.total_distance_traveled += distance_traveled
+                    self.completed_vehicles += 1
 
                 vehicles_to_remove.append(vehicle)
 
@@ -487,6 +499,7 @@ class IntersectionModel:
             "p_red": self.P_RED,
             "p_skid": self.P_SKID,
             "steps": self.steps,
+            "metrics_start_step": self.metrics_start_step,
         }
 
     def print_road_state(self):

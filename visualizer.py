@@ -313,6 +313,7 @@ def create_and_run_visualization(
     p_red: float = 0.01,
     p_skid: float = 0.01,
     allow_lane_changes: bool = True,
+    metrics_start_step: int = 0,
     frames: int = 500,
     interval: int = 100,
     save_path: str = None,
@@ -329,6 +330,7 @@ def create_and_run_visualization(
         p_chg: Lane change probability
         p_red: Red light violation probability
         p_skid: Braking failure probability
+        metrics_start_step: Time step at which to start recording metrics
         frames: Number of animation frames
         interval: Time between frames (ms)
         save_path: Path to save animation (optional)
@@ -349,6 +351,7 @@ def create_and_run_visualization(
         t_green=t_green,
         injection_rate=injection_rate,
         params=params,
+        metrics_start_step=metrics_start_step,
     )
 
     # Create visualizer and run animation
