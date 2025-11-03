@@ -37,7 +37,16 @@ class Weather(Enum):
 class Vehicle:
     """Represents a single vehicle in the model."""
 
-    def __init__(self, vehicle_id, road: Road, lane: Lane, vmax, p_red, p_skid):
+    def __init__(
+        self,
+        vehicle_id,
+        road: Road,
+        lane: Lane,
+        vmax,
+        p_red,
+        p_skid,
+        entry_time: int = 0,
+    ):
         self.id = vehicle_id
         self.road = road  # R1 or R2
         self.lane = lane  # LEFT or RIGHT
@@ -51,3 +60,6 @@ class Vehicle:
 
         # Collision status
         self.collided = False
+
+        # Travel time tracking
+        self.entry_time = entry_time

@@ -75,6 +75,13 @@ class IntersectionModel:
             0  # Number of vehicles that have passed through the intersection
         )
 
+        # Travel time metrics
+        self.total_travel_time = 0  # Sum of all vehicle travel times
+        self.completed_vehicles = 0  # Number of vehicles that completed the route
+        self.total_distance_traveled = (
+            0  # Sum of distances traveled by completed vehicles
+        )
+
         # Define the intersection zone
         # Stop line is at the position before the intersection starts
         self.intersection_start = self.L // 2
@@ -117,6 +124,7 @@ class IntersectionModel:
             vmax=self.V_MAX_BASE,
             p_red=self.P_RED,
             p_skid=self.P_SKID,
+            entry_time=self.time_step,
         )
 
         # Increment vehicle ID counter
@@ -400,6 +408,14 @@ class IntersectionModel:
 
             elif final_pos >= self.L_TOTAL:
                 # Vehicle successfully completed the road and leaves the system
+                travel_time = self.time_step - vehicle.entry_time
+                distance_traveled = self.L_TOTAL
+
+                # Update travel time metrics
+                self.total_travel_time += travel_time
+                self.total_distance_traveled += distance_traveled
+                self.completed_vehicles += 1
+
                 vehicles_to_remove.append(vehicle)
 
             else:
@@ -434,6 +450,17 @@ class IntersectionModel:
 
     def get_metrics(self):
         """Returns the output metrics of the simulation."""
+        avg_travel_time = (
+            self.total_travel_time / self.completed_vehicles
+            if self.completed_vehicles > 0
+            else 0
+        )
+        avg_speed = (
+            self.total_distance_traveled / self.total_travel_time
+            if self.total_travel_time > 0
+            else 0
+        )
+
         return {
             "n_lateral": self.N_lateral,
             "n_rear_end": self.N_rear_end,
@@ -443,6 +470,9 @@ class IntersectionModel:
                 self.N_lateral / self.N_rear_end if self.N_rear_end > 0 else 0
             ),
             "time": self.simulation_time,
+            "completed_vehicles": self.completed_vehicles,
+            "avg_travel_time": avg_travel_time,
+            "avg_speed": avg_speed,
         }
 
     def get_params(self):

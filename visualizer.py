@@ -216,13 +216,28 @@ class TrafficSimulationVisualizer:
 
     def _draw_info_text(self):
         """Draw simulation statistics."""
+        # Calculate current average metrics
+        avg_travel_time = (
+            self.model.total_travel_time / self.model.completed_vehicles
+            if self.model.completed_vehicles > 0
+            else 0
+        )
+        avg_speed = (
+            self.model.total_distance_traveled / self.model.total_travel_time
+            if self.model.total_travel_time > 0
+            else 0
+        )
+
         info_text = (
             f"Time: {self.model.time_step}\n"
             f"Vehicles: {len(self.model.vehicles)}\n"
             f"Total Vehicles: {self.model.N_vehicles}\n"
+            f"Completed: {self.model.completed_vehicles}\n"
             f"Lateral Collisions: {self.model.N_lateral}\n"
             f"Rear-end Collisions: {self.model.N_rear_end}\n"
-            f"Throughput: {self.model.throughput}"
+            f"Throughput: {self.model.throughput}\n"
+            f"Avg Travel Time: {avg_travel_time:.2f} steps\n"
+            f"Avg Speed: {avg_speed:.2f} cells/step"
         )
         self.ax.text(
             0.02,

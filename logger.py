@@ -44,6 +44,9 @@ class CSVLogger:
             "lateral_to_rear_end_ratio",
             "time",
             "total_time",
+            "completed_vehicles",
+            "avg_travel_time",
+            "avg_speed",
         ]
 
         # Create file with header if it doesn't exist
