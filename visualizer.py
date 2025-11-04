@@ -27,12 +27,32 @@ class TrafficSimulationVisualizer:
         self.interval = interval
 
         # Create figure and axis
-        self.fig, self.ax = plt.subplots(figsize=(12, 12))
+        self.fig, self.ax = plt.subplots(figsize=(16, 16))
 
         # Grid dimensions
         self.L_TOTAL = model.L_TOTAL
         self.intersection_start = model.intersection_start
         self.intersection_end = model.intersection_end
+
+        # Visual settings for larger display
+        self.cell_size = 2.0  # Size of each cell (car size)
+        self.lane_width = 4.0  # Width of each lane
+
+        # Color cycling for vehicles
+        self.vehicle_colors = [
+            '#FF6B6B',  # Red
+            "#1EE7DA",  # Teal
+            "#2711CC",  # Blue
+            "#E8551B",  # Light Salmon
+            "#2CC514",  # Mint
+            "#E9C123",  # Yellow
+            "#AF4ED8",  # Purple
+            "#67BEED",  # Light Blue
+            '#F8B739',  # Orange
+            '#52B788',  # Green
+        ]
+        self.color_index = 0
+        self.vehicle_color_map = {}  # Maps vehicle id to color
 
         # Set up the plot
         self._setup_plot()
@@ -42,11 +62,12 @@ class TrafficSimulationVisualizer:
         self.ax.set_xlim(-5, self.L_TOTAL + 5)
         self.ax.set_ylim(-5, self.L_TOTAL + 5)
         self.ax.set_aspect("equal")
-        self.ax.grid(True, alpha=0.3, linewidth=0.5)
-        self.ax.set_xlabel("Position (cells)", fontsize=12)
-        self.ax.set_ylabel("Position (cells)", fontsize=12)
+        # Remove grid for cleaner visualization
+        self.ax.grid(False)
+        self.ax.set_xlabel("Position (cells)", fontsize=14, fontweight='bold')
+        self.ax.set_ylabel("Position (cells)", fontsize=14, fontweight='bold')
         self.ax.set_title(
-            "Traffic Intersection Simulation", fontsize=14, fontweight="bold"
+            "Traffic Intersection Simulation", fontsize=16, fontweight="bold"
         )
 
     def _get_road_coordinates(
@@ -56,28 +77,28 @@ class TrafficSimulationVisualizer:
         Convert road position to (x, y) coordinates on the plot.
 
         Road R1 (vertical):
-            - LEFT lane: x = center - 0.5
-            - RIGHT lane: x = center + 0.5
+            - LEFT lane: x = center - lane_width/2
+            - RIGHT lane: x = center + lane_width/2
             - y = position (from bottom to top)
 
         Road R2 (horizontal):
-            - LEFT lane: y = center + 0.5
-            - RIGHT lane: y = center - 0.5
+            - LEFT lane: y = center + lane_width/2
+            - RIGHT lane: y = center - lane_width/2
             - x = position (from left to right)
         """
         center = self.L_TOTAL / 2
 
         if road == Road.R1:  # Vertical road (North-South)
             if lane == Lane.LEFT:
-                x = center - 0.5
+                x = center - self.lane_width / 2
             else:  # RIGHT
-                x = center + 0.5
+                x = center + self.lane_width / 2
             y = position
         else:  # Road.R2 - Horizontal road (West-East)
             if lane == Lane.LEFT:
-                y = center + 0.5
+                y = center + self.lane_width / 2
             else:  # RIGHT
-                y = center - 0.5
+                y = center - self.lane_width / 2
             x = position
 
         return x, y
@@ -86,22 +107,22 @@ class TrafficSimulationVisualizer:
         """Draw the road infrastructure (lanes and intersection)."""
         center = self.L_TOTAL / 2
 
-        # Draw Road R1 (vertical) - two lanes
-        for lane_offset in [-0.5, 0.5]:
+        # Draw Road R1 (vertical) - two lanes with wider lines
+        for lane_offset in [-self.lane_width / 2, self.lane_width / 2]:
             x = center + lane_offset
-            self.ax.plot([x, x], [0, self.L_TOTAL], "k-", linewidth=2, alpha=0.3)
+            self.ax.plot([x, x], [0, self.L_TOTAL], "k-", linewidth=4, alpha=0.5)
 
-        # Draw Road R2 (horizontal) - two lanes
-        for lane_offset in [-0.5, 0.5]:
+        # Draw Road R2 (horizontal) - two lanes with wider lines
+        for lane_offset in [-self.lane_width / 2, self.lane_width / 2]:
             y = center + lane_offset
-            self.ax.plot([0, self.L_TOTAL], [y, y], "k-", linewidth=2, alpha=0.3)
+            self.ax.plot([0, self.L_TOTAL], [y, y], "k-", linewidth=4, alpha=0.5)
 
-        # Highlight intersection zone
+        # Highlight intersection zone (adjusted for wider lanes)
         intersection_rect = Rectangle(
-            (self.intersection_start - 0.5, self.intersection_start - 0.5),
-            self.intersection_end - self.intersection_start,
-            self.intersection_end - self.intersection_start,
-            linewidth=2,
+            (self.intersection_start - self.lane_width, self.intersection_start - self.lane_width),
+            self.intersection_end - self.intersection_start + 2 * self.lane_width,
+            self.intersection_end - self.intersection_start + 2 * self.lane_width,
+            linewidth=3,
             edgecolor="orange",
             facecolor="yellow",
             alpha=0.2,
@@ -109,110 +130,117 @@ class TrafficSimulationVisualizer:
         )
         self.ax.add_patch(intersection_rect)
 
-        # Draw stop lines
+        # Draw stop lines with wider visibility
         stop_line_pos = self.intersection_start - 0.5
         # R1 stop line (horizontal line before intersection)
         self.ax.plot(
-            [center - 1, center + 1],
+            [center - self.lane_width, center + self.lane_width],
             [stop_line_pos, stop_line_pos],
             "r--",
-            linewidth=2,
-            alpha=0.5,
+            linewidth=3,
+            alpha=0.7,
         )
         # R2 stop line (vertical line before intersection)
         self.ax.plot(
             [stop_line_pos, stop_line_pos],
-            [center - 1, center + 1],
+            [center - self.lane_width, center + self.lane_width],
             "r--",
-            linewidth=2,
-            alpha=0.5,
+            linewidth=3,
+            alpha=0.7,
         )
 
     def _draw_traffic_lights(self):
         """Draw traffic light indicators."""
         center = self.L_TOTAL / 2
-        offset = 3
+        offset = 5
 
-        # Traffic light for R1 (vertical road) - positioned to the side
+        # Traffic light for R1 (vertical road) - positioned to the side with larger size
         r1_color = (
             "green"
             if self.model.traffic_light[Road.R1] == TrafficLightState.GREEN
             else "red"
         )
         r1_light = plt.Circle(
-            (center + offset, self.intersection_start - 2),
-            0.8,
+            (center + offset, self.intersection_start - 3),
+            1.5,
             color=r1_color,
             zorder=10,
         )
         self.ax.add_patch(r1_light)
         self.ax.text(
             center + offset,
-            self.intersection_start - 4,
+            self.intersection_start - 6,
             "R1",
             ha="center",
             va="center",
-            fontsize=10,
+            fontsize=14,
             fontweight="bold",
         )
 
-        # Traffic light for R2 (horizontal road) - positioned to the side
+        # Traffic light for R2 (horizontal road) - positioned to the side with larger size
         r2_color = (
             "green"
             if self.model.traffic_light[Road.R2] == TrafficLightState.GREEN
             else "red"
         )
         r2_light = plt.Circle(
-            (self.intersection_start - 2, center + offset),
-            0.8,
+            (self.intersection_start - 3, center + offset),
+            1.5,
             color=r2_color,
             zorder=10,
         )
         self.ax.add_patch(r2_light)
         self.ax.text(
-            self.intersection_start - 4,
+            self.intersection_start - 6,
             center + offset,
             "R2",
             ha="center",
             va="center",
-            fontsize=10,
+            fontsize=14,
             fontweight="bold",
         )
 
     def _draw_vehicles(self):
-        """Draw all vehicles as black cells (or red if collided)."""
+        """Draw all vehicles as larger circles with unique colors."""
         for vehicle in self.model.vehicles:
             x, y = self._get_road_coordinates(
                 vehicle.road, vehicle.lane, vehicle.position
             )
 
-            # Color: red for collided vehicles, black for normal
-            color = "red" if vehicle.collided else "black"
+            # Assign color to new vehicles
+            if id(vehicle) not in self.vehicle_color_map:
+                self.vehicle_color_map[id(vehicle)] = self.vehicle_colors[self.color_index]
+                self.color_index = (self.color_index + 1) % len(self.vehicle_colors)
 
-            # Draw vehicle as a square
-            vehicle_square = Rectangle(
-                (x - 0.4, y - 0.4),
-                0.8,
-                0.8,
+            # Color: red for collided vehicles, assigned color for normal
+            if vehicle.collided:
+                color = "red"
+            else:
+                color = self.vehicle_color_map[id(vehicle)]
+
+            # Draw vehicle as a larger circle
+            vehicle_circle = plt.Circle(
+                (x, y),
+                self.cell_size / 2,
                 facecolor=color,
                 edgecolor="white",
-                linewidth=1,
+                linewidth=2,
                 zorder=5,
             )
-            self.ax.add_patch(vehicle_square)
+            self.ax.add_patch(vehicle_circle)
 
-            # Optionally, show velocity as text inside the cell
-            if not vehicle.collided:
-                self.ax.text(
-                    x,
-                    y,
-                    str(vehicle.velocity),
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    color="white",
-                    fontweight="bold",
-                )
+            # Always show velocity as text inside the circle with larger font
+            self.ax.text(
+                x,
+                y,
+                str(vehicle.velocity),
+                ha="center",
+                va="center",
+                fontsize=14,
+                color="white",
+                fontweight="bold",
+                zorder=6,
+            )
 
     def _draw_info_text(self):
         """Draw simulation statistics."""

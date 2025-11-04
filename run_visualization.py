@@ -3,27 +3,49 @@ Simple script to run the traffic simulation visualization.
 """
 
 from visualizer import create_and_run_visualization
+import sys
 
 if __name__ == "__main__":
+    
+    # Check for rainy condition parameter
+    rainy = "--rainy" in sys.argv or "-r" in sys.argv
+    
     print("=" * 80)
     print("TRAFFIC INTERSECTION SIMULATION - VISUALIZATION")
     print("=" * 80)
-    print("\nStarting visualization...")
+    print(f"\nWeather condition: {'RAINY' if rainy else 'NORMAL'}")
+    print("Starting visualization...")
     print("Close the window to end the simulation.\n")
 
-    # Run visualization with custom parameters
-    create_and_run_visualization(
-        length=100,  # Road length (shorter for better visibility)
-        vmax=2,  # Maximum velocity
-        t_green=50,  # Green light duration
-        injection_rate=0.5,  # Vehicle injection rate (higher for more traffic)
-        p_b=0.1,  # Random braking probability
-        p_chg=0.8,  # Lane change probability
-        p_red=0.1,  # Red light violation probability
-        p_skid=0.01,  # Braking failure probability
-        frames=1000,  # Number of simulation steps
-        interval=50,  # Milliseconds between frames (50ms = 20 fps)
-        save_path=None,  # Set to 'animation.gif' to save as GIF
-    )
+    if rainy:
+        # Rainy conditions: more cautious driving
+        create_and_run_visualization(
+            length=100,
+            vmax=2,
+            t_green=50,
+            injection_rate=0.5,
+            p_b=0.15,
+            p_chg=0.4,
+            p_red=0.01, 
+            p_skid=0.1,
+            frames=1000,
+            interval=50,
+            save_path='animation_rainy.mp4',
+        )
+    else:
+        # Normal conditions
+        create_and_run_visualization(
+            length=100,
+            vmax=2,
+            t_green=50,
+            injection_rate=0.5,
+            p_b=0.1,
+            p_chg=0.8,
+            p_red=0.05,
+            p_skid=0.01,
+            frames=1000,
+            interval=50,
+            save_path='animation.mp4',
+        )
 
     print("\nVisualization complete!")
