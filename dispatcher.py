@@ -39,8 +39,6 @@ class SimulationConfig:
     # Optional identifier
     config_id: Optional[int] = None
 
-    allow_lane_changes: bool = True
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for logging."""
         return asdict(self)
@@ -64,7 +62,6 @@ def run_single_simulation(config: SimulationConfig) -> Dict[str, Any]:
         p_chg=config.p_chg,
         p_red=config.p_red,
         p_skid=config.p_skid,
-        allow_lane_changes=config.allow_lane_changes,
     )
 
     # Create and run model
@@ -205,7 +202,6 @@ def generate_parameter_grid(
     p_chg_values: List[float],
     p_red_values: List[float],
     p_skid_values: List[float],
-    allow_lane_changes: List[bool] = [True],
     steps: int = 100000,
     metrics_start_step: int = 0,
 ) -> List[SimulationConfig]:
@@ -232,7 +228,6 @@ def generate_parameter_grid(
         p_chg,
         p_red,
         p_skid,
-        allow_lane_change,
     ) in itertools.product(
         length_values,
         vmax_values,
@@ -242,7 +237,6 @@ def generate_parameter_grid(
         p_chg_values,
         p_red_values,
         p_skid_values,
-        allow_lane_changes,
     ):
         config = SimulationConfig(
             length=length,
@@ -256,7 +250,6 @@ def generate_parameter_grid(
             steps=steps,
             metrics_start_step=metrics_start_step,
             config_id=config_id,
-            allow_lane_changes=allow_lane_changes,
         )
         configs.append(config)
         config_id += 1

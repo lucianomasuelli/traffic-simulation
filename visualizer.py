@@ -40,7 +40,7 @@ class TrafficSimulationVisualizer:
 
         # Color cycling for vehicles
         self.vehicle_colors = [
-            '#FF6B6B',  # Red
+            "#FF6B6B",  # Red
             "#1EE7DA",  # Teal
             "#2711CC",  # Blue
             "#E8551B",  # Light Salmon
@@ -48,8 +48,8 @@ class TrafficSimulationVisualizer:
             "#E9C123",  # Yellow
             "#AF4ED8",  # Purple
             "#67BEED",  # Light Blue
-            '#F8B739',  # Orange
-            '#52B788',  # Green
+            "#F8B739",  # Orange
+            "#52B788",  # Green
         ]
         self.color_index = 0
         self.vehicle_color_map = {}  # Maps vehicle id to color
@@ -64,8 +64,8 @@ class TrafficSimulationVisualizer:
         self.ax.set_aspect("equal")
         # Remove grid for cleaner visualization
         self.ax.grid(False)
-        self.ax.set_xlabel("Position (cells)", fontsize=14, fontweight='bold')
-        self.ax.set_ylabel("Position (cells)", fontsize=14, fontweight='bold')
+        self.ax.set_xlabel("Position (cells)", fontsize=14, fontweight="bold")
+        self.ax.set_ylabel("Position (cells)", fontsize=14, fontweight="bold")
         self.ax.set_title(
             "Traffic Intersection Simulation", fontsize=16, fontweight="bold"
         )
@@ -119,7 +119,10 @@ class TrafficSimulationVisualizer:
 
         # Highlight intersection zone (adjusted for wider lanes)
         intersection_rect = Rectangle(
-            (self.intersection_start - self.lane_width, self.intersection_start - self.lane_width),
+            (
+                self.intersection_start - self.lane_width,
+                self.intersection_start - self.lane_width,
+            ),
             self.intersection_end - self.intersection_start + 2 * self.lane_width,
             self.intersection_end - self.intersection_start + 2 * self.lane_width,
             linewidth=3,
@@ -209,7 +212,9 @@ class TrafficSimulationVisualizer:
 
             # Assign color to new vehicles
             if id(vehicle) not in self.vehicle_color_map:
-                self.vehicle_color_map[id(vehicle)] = self.vehicle_colors[self.color_index]
+                self.vehicle_color_map[id(vehicle)] = self.vehicle_colors[
+                    self.color_index
+                ]
                 self.color_index = (self.color_index + 1) % len(self.vehicle_colors)
 
             # Color: red for collided vehicles, assigned color for normal
@@ -340,7 +345,6 @@ def create_and_run_visualization(
     p_chg: float = 0.8,
     p_red: float = 0.01,
     p_skid: float = 0.01,
-    allow_lane_changes: bool = True,
     metrics_start_step: int = 0,
     frames: int = 500,
     interval: int = 100,
@@ -371,7 +375,6 @@ def create_and_run_visualization(
         p_chg=p_chg,
         p_red=p_red,
         p_skid=p_skid,
-        allow_lane_changes=allow_lane_changes,
     )
     model = IntersectionModel(
         length=length,
@@ -379,7 +382,6 @@ def create_and_run_visualization(
         t_green=t_green,
         injection_rate=injection_rate,
         params=params,
-        metrics_start_step=metrics_start_step,
     )
 
     # Create visualizer and run animation
