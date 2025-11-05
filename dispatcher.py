@@ -204,6 +204,7 @@ def generate_parameter_grid(
     p_skid_values: List[float],
     steps: int = 100000,
     metrics_start_step: int = 0,
+    replications: int = 1,
 ) -> List[SimulationConfig]:
     """
     Generate a grid of all parameter combinations.
@@ -212,6 +213,7 @@ def generate_parameter_grid(
         *_values: Lists of values for each parameter
         steps: Number of simulation steps
         metrics_start_step: Time step at which to start recording metrics
+        replications: Number of times to replicate each parameter combination (default: 1)
 
     Returns:
         List of SimulationConfig objects
@@ -238,20 +240,21 @@ def generate_parameter_grid(
         p_red_values,
         p_skid_values,
     ):
-        config = SimulationConfig(
-            length=length,
-            vmax=vmax,
-            t_green=t_green,
-            injection_rate=injection_rate,
-            p_b=p_b,
-            p_chg=p_chg,
-            p_red=p_red,
-            p_skid=p_skid,
-            steps=steps,
-            metrics_start_step=metrics_start_step,
-            config_id=config_id,
-        )
-        configs.append(config)
-        config_id += 1
+        for _ in range(replications):
+            config = SimulationConfig(
+                length=length,
+                vmax=vmax,
+                t_green=t_green,
+                injection_rate=injection_rate,
+                p_b=p_b,
+                p_chg=p_chg,
+                p_red=p_red,
+                p_skid=p_skid,
+                steps=steps,
+                metrics_start_step=metrics_start_step,
+                config_id=config_id,
+            )
+            configs.append(config)
+            config_id += 1
 
     return configs

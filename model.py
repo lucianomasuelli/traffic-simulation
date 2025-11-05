@@ -181,39 +181,22 @@ class IntersectionModel:
     ) -> Tuple[int, int, str]:
         target_road = road if road is not None else vehicle.road
         target_lane = lane if lane is not None else vehicle.lane
-        road_grid = self.grid[target_road][target_lane]
 
-        # Check if there's a red light ahead and vehicle hasn't passed the intersection yet
-        if (
-            self.traffic_light[target_road] == TrafficLightState.RED
-            and vehicle.position < self.intersection_start
-        ):
-            # Gap to the stop line (position before intersection)
-            gap_to_intersection = self.intersection_start - vehicle.position - 1
+        vehicle_gap = self.get_distance_to_front_vehicle(
+            vehicle, target_road, target_lane
+        )
+        intersection_gap = self.get_distance_to_intersection(
+            vehicle, target_road, target_lane
+        )
 
-            # Check for vehicles between current position and intersection
-            for i in range(vehicle.position + 1, self.intersection_start):
-                if road_grid[i] is not None:
-                    # Found a vehicle before the intersection
-                    return i - vehicle.position - 1, "vehicle"
+        if vehicle_gap < intersection_gap:
+            reason = "vehicle"
+        elif intersection_gap < 2 * self.L_TOTAL:
+            reason = "red_light"
+        else:
+            reason = "none"
 
-            if gap_to_intersection == 0:
-                return 0, "red_light"
-
-            if random.random() < vehicle.p_red:
-                # Vehicle decides to violate the red light
-                return self.L_TOTAL * 2, "empty"
-            else:
-                return gap_to_intersection, "red_light"
-
-        # Normal case: look for vehicles ahead (either green light or already past intersection)
-        # Iterate from the cell in front of the vehicle to the end
-        for i in range(vehicle.position + 1, self.L_TOTAL):
-            if road_grid[i] is not None:
-                # Found a vehicle, gap is distance to it
-                return i - vehicle.position - 1, "vehicle"
-
-        return self.L_TOTAL * 2, "empty"
+        return vehicle_gap, intersection_gap, reason
 
     def find_back_gap(self, vehicle: Vehicle, lane: Lane = None) -> int:
         """
@@ -308,7 +291,6 @@ class IntersectionModel:
 
         # Check if lane change is safe and advantageous
         if self.can_change_lane(vehicle) and random.random() < self.P_CHG:
-            print(f"Vehicle {vehicle.id} changing lane from {vehicle.lane.name}")
             # Perform the lane change
             other_lane = self.get_other_lane(vehicle.lane)
 
@@ -350,7 +332,7 @@ class IntersectionModel:
                 vehicle
             )
 
-            # --- NaSch Rules 1 (Acceleration) ---
+            # --- Rule 1 (acceleration) ---
             v_new = min(v_i + 1, vehicle.v_max)
 
             # --- Rule 2 (safety distance) ---
