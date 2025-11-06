@@ -6,26 +6,25 @@ from entities import Weather
 import numpy as np
 
 if __name__ == "__main__":
-    # Fixed parameters
-    LENGTH = 200
+    LENGTH = 100
     VMAX = 4
     P_B = 0.1
-    P_RED = 0.1
+    P_CHG = 0.1
     P_SKID = 0.0
     T_GREEN = 40
     STEPS = 100000
-    REPLICATIONS = 50
+    REPLICATIONS = 5
 
     # Variable parameters
     injection_rates = np.linspace(0.05, 1.0, 20)
-    p_chg_values = [0.0, 0.02, 0.1, 1.0]
+    p_red_values = [0.0, 0.05, 0.1, 0.2, 0.5, 0.8]
 
     print(f"Number of injection rate values: {len(injection_rates)}")
     print(f"Injection rates: {injection_rates}")
-    print(f"p_chg values: {p_chg_values}")
+    print(f"p_red values: {p_red_values}")
     print(f"Number of replications per configuration: {REPLICATIONS}")
     print(
-        f"Total simulations: {len(injection_rates) * len(p_chg_values) * REPLICATIONS}"
+        f"Total simulations: {len(injection_rates) * len(p_red_values) * REPLICATIONS}"
     )
 
     configs = generate_parameter_grid(
@@ -34,8 +33,8 @@ if __name__ == "__main__":
         t_green_values=[T_GREEN],
         injection_rate_values=injection_rates.tolist(),
         p_b_values=[P_B],
-        p_chg_values=p_chg_values,
-        p_red_values=[P_RED],
+        p_chg_values=[P_CHG],
+        p_red_values=p_red_values,
         p_skid_values=[P_SKID],
         steps=STEPS,
         metrics_start_step=0,
@@ -46,7 +45,7 @@ if __name__ == "__main__":
     print(f"\nFirst configuration:")
     print(configs[0])
 
-    output_file = "injection_test.csv"
+    output_file = "p_red_test.csv"
 
     dispatcher = SimulationDispatcher(
         output_file=output_file,
