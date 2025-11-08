@@ -31,13 +31,13 @@ class ModelParameters:
 NORMAL_PARAMS = ModelParameters(
     p_b=0.1,  # Random Braking Probability (NaSch)
     p_chg=0.8,  # Lane Change Probability
-    p_red=0.001,  # Red Light Violation Probability
+    p_red=0.1,  # Red Light Violation Probability
     p_skid=0.05,  # Braking Failure Probability (Rear-end collision)
 )
 
 RAINY_PARAMS = ModelParameters(
-    p_b=0.15,  # Increased: longer braking distance/more cautious braking (0.1 * 1.5)
-    p_chg=0.4,  # Reduced: discourages lane changes (0.8 * 0.5)
-    p_red=0.05,  # Reduced: more cautious (0.1 * 0.5)
-    p_skid=0.1,  # Increased: braking failure/aquaplaning (0.05 * 2.0)
+    p_b=0.5,  # Increased: more probability of random braking 
+    p_chg=0.2,  # Reduced: discourages lane changes
+    p_red=0.05,  # Reduced: more cautious
+    p_skid=0.9,  # Increased: braking failure/aquaplaning
 )

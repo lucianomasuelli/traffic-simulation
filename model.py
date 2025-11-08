@@ -51,7 +51,7 @@ class IntersectionModel:
 
         # Intersection dimensions
         self.INTERSECTION_SIZE = (
-            2  # Number of cells each lane occupies in the intersection
+            4  # Number of cells each lane occupies in the intersection
         )
         # Total road length including intersection space
         self.L_TOTAL = self.L + self.INTERSECTION_SIZE
@@ -73,9 +73,6 @@ class IntersectionModel:
         self.N_lateral = 0  # Total count of lateral collisions (red light violation)
         self.N_rear_end = 0  # Total count of rear-end collisions (braking failure)
         self.N_vehicles = 0  # Total number of vehicles that have circulated
-        self.throughput = (
-            0  # Number of vehicles that have passed through the intersection
-        )
 
         # Travel time metrics
         self.total_travel_time = 0  # Sum of all vehicle travel times
@@ -345,16 +342,25 @@ class IntersectionModel:
                 front_vehicle = self.find_front_vehicle(vehicle)
                 # Crash into the vehicle ahead with probability p_skid
                 if front_vehicle and random.random() < vehicle.p_skid:
-                    front_vehicle.collided = True
-
                     if self.should_record_metrics():
                         self.N_rear_end += 1
+                    
+                    # Mark both vehicles as collided
                     vehicle.collided = True
+                    vehicle.collision_time = self.time_step
+                    front_vehicle.collided = True
+                    front_vehicle.collision_time = self.time_step
 
                     # The vehicle fails to slow down and hits the car in front.
-                    # Its new position will be the cell *behind* the front car.
-                    new_pos = vehicle.position + distance_to_vehicle
+                    # Both vehicles stay where they were
+                    new_pos = vehicle.position
                     v_new = 0
+                    
+                    # Update front vehicle's state to stay in place
+                    new_vehicles_state[front_vehicle] = {
+                        "pos": front_vehicle.position, 
+                        "vel": 0
+                    }
                 else:
                     v_new = distance_to_vehicle
 
@@ -367,6 +373,7 @@ class IntersectionModel:
                 else:
                     v_new = distance_to_intersection
 
+            # Random braking
             if v_new > 0 and random.random() < self.P_B:
                 v_new -= 1
 
@@ -374,13 +381,12 @@ class IntersectionModel:
             new_vehicles_state[vehicle] = {"pos": new_pos, "vel": v_new}
 
             # --- Check if this move enters the intersection ---
-            if (
-                vehicle.position < self.intersection_start <= new_pos
-                and not vehicle.collided
-            ):
+            is_in_intersection = (
+                new_pos >= self.intersection_start and new_pos < self.intersection_end
+            )
+            
+            if is_in_intersection and not vehicle.collided:
                 intersection_entrants[vehicle.road].append(vehicle)
-                if self.should_record_metrics():
-                    self.throughput += 1
 
         # --- PHASE 2: Check for Lateral Collisions ---
         if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
@@ -388,15 +394,14 @@ class IntersectionModel:
                 self.N_lateral += 1
 
             # Mark ALL vehicles entering the intersection as collided
-            # Only vehicles that actually entered (violators) should collide
-            # Vehicles stopped before the intersection are safe
+            # Vehicles remain at their intended positions (where they entered)
             for road_entrants in intersection_entrants.values():
                 for vehicle in road_entrants:
                     if not vehicle.collided:
                         vehicle.collided = True
-                        # The vehicle stops *at* the collision point (inside the intersection)
-                        # Place them at the start of the intersection zone
-                        new_vehicles_state[vehicle]["pos"] = self.intersection_start
+                        vehicle.collision_time = self.time_step
+                        # Vehicles stop at their current intended position
+                        # (they've already entered the intersection)
                         new_vehicles_state[vehicle]["vel"] = 0
 
         # --- PHASE 3: Apply Final State and Update Grid ---
@@ -410,7 +415,15 @@ class IntersectionModel:
             final_vel = new_vehicles_state[vehicle]["vel"]
 
             if vehicle.collided:
-                vehicles_to_remove.append(vehicle)
+                # Check if 50 steps have passed since collision
+                steps_since_collision = self.time_step - vehicle.collision_time
+                if steps_since_collision >= 50:
+                    vehicles_to_remove.append(vehicle)
+                else:
+                    # Keep vehicle in place - use final_pos which is the collision position
+                    vehicle.position = final_pos
+                    vehicle.velocity = final_vel
+                    self.grid[vehicle.road][vehicle.lane][final_pos] = vehicle
 
             elif final_pos >= self.L_TOTAL:
                 # Vehicle successfully completed the road and leaves the system
@@ -472,7 +485,6 @@ class IntersectionModel:
             "n_lateral": self.N_lateral,
             "n_rear_end": self.N_rear_end,
             "n_vehicles": self.N_vehicles,
-            "throughput": self.throughput,
             "lateral_to_rear_end_ratio": (
                 self.N_lateral / self.N_rear_end if self.N_rear_end > 0 else 0
             ),

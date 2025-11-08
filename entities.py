@@ -60,6 +60,7 @@ class Vehicle:
 
         # Collision status
         self.collided = False
+        self.collision_time = None  # Time step when collision occurred
 
         # Travel time tracking
         self.entry_time = entry_time

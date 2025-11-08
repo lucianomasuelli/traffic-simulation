@@ -35,7 +35,7 @@ class TrafficSimulationVisualizer:
         self.intersection_end = model.intersection_end
 
         # Visual settings for larger display
-        self.cell_size = 2.0  # Size of each cell (car size)
+        self.cell_size = 3.0  # Size of each cell (car size)
         self.lane_width = 4.0  # Width of each lane
 
         # Color cycling for vehicles
@@ -220,16 +220,18 @@ class TrafficSimulationVisualizer:
             # Color: red for collided vehicles, assigned color for normal
             if vehicle.collided:
                 color = "red"
+                edge_color = "darkred"
             else:
                 color = self.vehicle_color_map[id(vehicle)]
+                edge_color = "black"
 
-            # Draw vehicle as a larger circle
+            # Draw vehicle as a larger circle with visible border
             vehicle_circle = plt.Circle(
                 (x, y),
                 self.cell_size / 2,
                 facecolor=color,
-                edgecolor="white",
-                linewidth=2,
+                edgecolor=edge_color,
+                linewidth=0.5,
                 zorder=5,
             )
             self.ax.add_patch(vehicle_circle)
@@ -268,7 +270,6 @@ class TrafficSimulationVisualizer:
             f"Completed: {self.model.completed_vehicles}\n"
             f"Lateral Collisions: {self.model.N_lateral}\n"
             f"Rear-end Collisions: {self.model.N_rear_end}\n"
-            f"Throughput: {self.model.throughput}\n"
             f"Avg Travel Time: {avg_travel_time:.2f} steps\n"
             f"Avg Speed: {avg_speed:.2f} cells/step"
         )
