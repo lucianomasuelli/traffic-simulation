@@ -550,7 +550,7 @@ class IntersectionModel:
             if self.completed_vehicles > 0
             else 0
         )
-        avg_speed = self.avg_velocities / self.N_vehicles if self.N_vehicles > 0 else 0
+        avg_speed = self.avg_velocities / self.time_step if self.time_step > 0 else 0
 
         return {
             "n_lateral": self.N_lateral,
