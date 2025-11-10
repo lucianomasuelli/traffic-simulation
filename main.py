@@ -8,9 +8,9 @@ import numpy as np
 if __name__ == "__main__":
     # Fixed parameters
     LENGTH = 100
+    VMAX = 4
     P_B = 0.1
     P_CHG = 0.1
-    P_RED = 0.1
     P_SKID = 0.0
     T_GREEN = 40
     STEPS = 100000
@@ -18,24 +18,25 @@ if __name__ == "__main__":
 
     # Variable parameters
     injection_rates = np.linspace(0.05, 1.0, 20)
-    vmax_values = [2, 3, 4, 5, 6, 7]
+    p_red_values = [0.0, 0.05, 0.1, 0.2, 0.5, 0.8]
 
     print(f"Number of injection rate values: {len(injection_rates)}")
     print(f"Injection rates: {injection_rates}")
-    print(f"vmax values: {vmax_values}")
+    print(f"p_red values: {p_red_values}")
     print(f"Number of replications per configuration: {REPLICATIONS}")
     print(
-        f"Total simulations: {len(injection_rates) * len(vmax_values) * REPLICATIONS}"
+        f"Total simulations: {len(injection_rates) * len(p_red_values) * REPLICATIONS}"
     )
 
+    # Generate all parameter combinations
     configs = generate_parameter_grid(
         length_values=[LENGTH],
-        vmax_values=vmax_values,
+        vmax_values=[VMAX],
         t_green_values=[T_GREEN],
         injection_rate_values=injection_rates.tolist(),
         p_b_values=[P_B],
         p_chg_values=[P_CHG],
-        p_red_values=[P_RED],
+        p_red_values=p_red_values,
         p_skid_values=[P_SKID],
         steps=STEPS,
         metrics_start_step=0,
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     print(f"\nFirst configuration:")
     print(configs[0])
 
-    output_file = "vmax_test.csv"
+    output_file = "p_red_test.csv"
 
     dispatcher = SimulationDispatcher(
         output_file=output_file,

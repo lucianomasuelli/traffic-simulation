@@ -64,3 +64,8 @@ class Vehicle:
 
         # Travel time tracking
         self.entry_time = entry_time
+
+        # Throughput tracking
+        self.exited_intersection = (
+            False  # Flag to track if vehicle has exited intersection
+        )

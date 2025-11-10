@@ -51,7 +51,7 @@ class IntersectionModel:
 
         # Intersection dimensions
         self.INTERSECTION_SIZE = (
-            4  # Number of cells each lane occupies in the intersection
+            2  # Number of cells each lane occupies in the intersection
         )
         # Total road length including intersection space
         self.L_TOTAL = self.L + self.INTERSECTION_SIZE
@@ -73,6 +73,7 @@ class IntersectionModel:
         self.N_lateral = 0  # Total count of lateral collisions (red light violation)
         self.N_rear_end = 0  # Total count of rear-end collisions (braking failure)
         self.N_vehicles = 0  # Total number of vehicles that have circulated
+        self.throughput = 0
 
         # Travel time metrics
         self.total_travel_time = 0  # Sum of all vehicle travel times
@@ -80,6 +81,9 @@ class IntersectionModel:
         self.total_distance_traveled = (
             0  # Sum of distances traveled by completed vehicles
         )
+
+        # Average speed metrics
+        self.avg_velocities = 0
 
         # Define the intersection zone
         # Stop line is at the position before the intersection starts
@@ -105,39 +109,75 @@ class IntersectionModel:
     def inject_vehicle(self):
         """Tries to inject a new vehicle into the system."""
         # Implementation of vehicle injection with INJECTION_RATE 'a'
-        # Should choose a road (R1/R2) and a lane (LEFT/RIGHT) if the starting cell (position 0) is free.
+        # Tries to add a vehicle to each lane independently
 
-        # Try to inject with probability INJECTION_RATE
-        if random.random() > self.INJECTION_RATE:
-            return  # No injection this time step
+        # Try each combination of road and lane
+        for road in Road:
+            for lane in Lane:
+                # Try to inject with probability INJECTION_RATE
+                if random.random() > self.INJECTION_RATE:
+                    continue  # No injection for this lane
 
-        # Randomly choose a road and lane
-        road = random.choice(list(Road))
-        lane = random.choice(list(Lane))
+                # Check if the starting position (cell 0) is free
+                if self.grid[road][lane][0] is not None:
+                    continue  # Starting position is occupied, cannot inject
 
-        # Check if the starting position (cell 0) is free
-        if self.grid[road][lane][0] is not None:
-            return  # Starting position is occupied, cannot inject
+                # Create a new vehicle
+                new_vehicle = Vehicle(
+                    vehicle_id=self.next_vehicle_id,
+                    road=road,
+                    lane=lane,
+                    vmax=self.V_MAX_BASE,
+                    p_red=self.P_RED,
+                    p_skid=self.P_SKID,
+                    entry_time=self.time_step,
+                )
 
-        # Create a new vehicle
-        new_vehicle = Vehicle(
-            vehicle_id=self.next_vehicle_id,
-            road=road,
-            lane=lane,
-            vmax=self.V_MAX_BASE,
-            p_red=self.P_RED,
-            p_skid=self.P_SKID,
-            entry_time=self.time_step,
-        )
+                # Increment vehicle ID counter
+                self.next_vehicle_id += 1
+                if self.should_record_metrics():
+                    self.N_vehicles += 1
 
-        # Increment vehicle ID counter
-        self.next_vehicle_id += 1
-        if self.should_record_metrics():
-            self.N_vehicles += 1
+                # Add vehicle to the grid and vehicle list
+                self.grid[road][lane][0] = new_vehicle
+                self.vehicles.append(new_vehicle)
 
-        # Add vehicle to the grid and vehicle list
-        self.grid[road][lane][0] = new_vehicle
-        self.vehicles.append(new_vehicle)
+    def get_lateral_collision_vehicles(self) -> list[Vehicle]:
+        """
+        Returns a list of vehicles currently involved in lateral collisions.
+        A lateral collision occurs when two vehicles from different roads happen to occupy the same space.
+        This allows for 4 possible sites for lateral collisions in the intersection area.
+
+        1. R1 LEFT lane, cell intersection_start with R2 RIGHT lane, cell intersection_start
+        2. R1 LEFT lane, cell intersection_start with R2 LEFT lane, cell intersection_start + 1
+        3. R1 RIGHT lane, cell intersection_start with R2 RIGHT lane, cell intersection_start + 1
+        4. R1 RIGHT lane, cell intersection_start + 1 with R2 LEFT lane, cell intersection_start + 1
+        """
+
+        collision_vehicles = []
+
+        # Check each of the 4 possible collision sites
+        site_1_r1 = self.grid[Road.R1][Lane.LEFT][self.intersection_start]
+        site_1_r2 = self.grid[Road.R2][Lane.RIGHT][self.intersection_start]
+        if site_1_r1 is not None and site_1_r2 is not None:
+            collision_vehicles.extend([site_1_r1, site_1_r2])
+
+        site_2_r1 = self.grid[Road.R1][Lane.LEFT][self.intersection_start + 1]
+        site_2_r2 = self.grid[Road.R2][Lane.LEFT][self.intersection_start]
+        if site_2_r1 is not None and site_2_r2 is not None:
+            collision_vehicles.extend([site_2_r1, site_2_r2])
+
+        site_3_r1 = self.grid[Road.R1][Lane.RIGHT][self.intersection_start]
+        site_3_r2 = self.grid[Road.R2][Lane.RIGHT][self.intersection_start + 1]
+        if site_3_r1 is not None and site_3_r2 is not None:
+            collision_vehicles.extend([site_3_r1, site_3_r2])
+
+        site_4_r1 = self.grid[Road.R1][Lane.RIGHT][self.intersection_start + 1]
+        site_4_r2 = self.grid[Road.R2][Lane.LEFT][self.intersection_start + 1]
+        if site_4_r1 is not None and site_4_r2 is not None:
+            collision_vehicles.extend([site_4_r1, site_4_r2])
+
+        return collision_vehicles
 
     def find_front_vehicle(self, vehicle: Vehicle) -> Vehicle | None:
         """Finds the vehicle object directly ahead in the same lane."""
@@ -308,7 +348,6 @@ class IntersectionModel:
         2. Collision Check: Detect and resolve lateral and rear-end collisions.
         3. Update: Apply final moves to the grid.
         """
-
         for vehicle in self.vehicles:
             self.attempt_lane_change(vehicle)
 
@@ -344,7 +383,7 @@ class IntersectionModel:
                 if front_vehicle and random.random() < vehicle.p_skid:
                     if self.should_record_metrics():
                         self.N_rear_end += 1
-                    
+
                     # Mark both vehicles as collided
                     vehicle.collided = True
                     vehicle.collision_time = self.time_step
@@ -355,11 +394,11 @@ class IntersectionModel:
                     # Both vehicles stay where they were
                     new_pos = vehicle.position
                     v_new = 0
-                    
+
                     # Update front vehicle's state to stay in place
                     new_vehicles_state[front_vehicle] = {
-                        "pos": front_vehicle.position, 
-                        "vel": 0
+                        "pos": front_vehicle.position,
+                        "vel": 0,
                     }
                 else:
                     v_new = distance_to_vehicle
@@ -384,25 +423,36 @@ class IntersectionModel:
             is_in_intersection = (
                 new_pos >= self.intersection_start and new_pos < self.intersection_end
             )
-            
-            if is_in_intersection and not vehicle.collided:
-                intersection_entrants[vehicle.road].append(vehicle)
+
+            if is_in_intersection:
+                if not vehicle.collided:
+                    intersection_entrants[vehicle.road].append(vehicle)
 
         # --- PHASE 2: Check for Lateral Collisions ---
-        if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
-            if self.should_record_metrics():
-                self.N_lateral += 1
+        collided_vehicles = self.get_lateral_collision_vehicles()
+        for vehicle in collided_vehicles:
+            if not vehicle.collided:
+                vehicle.collided = True
+                vehicle.collision_time = self.time_step
+                # Vehicles stop at their current intended position
+                # (they've already entered the intersection)
+                new_vehicles_state[vehicle]["vel"] = 0
+        self.N_lateral += len(collided_vehicles) // 2
 
-            # Mark ALL vehicles entering the intersection as collided
-            # Vehicles remain at their intended positions (where they entered)
-            for road_entrants in intersection_entrants.values():
-                for vehicle in road_entrants:
-                    if not vehicle.collided:
-                        vehicle.collided = True
-                        vehicle.collision_time = self.time_step
-                        # Vehicles stop at their current intended position
-                        # (they've already entered the intersection)
-                        new_vehicles_state[vehicle]["vel"] = 0
+        # if intersection_entrants[Road.R1] and intersection_entrants[Road.R2]:
+        #     if self.should_record_metrics():
+        #         self.N_lateral += 1
+
+        #     # Mark ALL vehicles entering the intersection as collided
+        #     # Vehicles remain at their intended positions (where they entered)
+        #     for road_entrants in intersection_entrants.values():
+        #         for vehicle in road_entrants:
+        #             if not vehicle.collided:
+        #                 vehicle.collided = True
+        #                 vehicle.collision_time = self.time_step
+        #                 # Vehicles stop at their current intended position
+        #                 # (they've already entered the intersection)
+        #                 new_vehicles_state[vehicle]["vel"] = 0
 
         # --- PHASE 3: Apply Final State and Update Grid ---
         self.grid = {r: {l: [None] * self.L_TOTAL for l in Lane} for r in Road}
@@ -417,7 +467,7 @@ class IntersectionModel:
             if vehicle.collided:
                 # Check if 50 steps have passed since collision
                 steps_since_collision = self.time_step - vehicle.collision_time
-                if steps_since_collision >= 50:
+                if steps_since_collision >= 5:
                     vehicles_to_remove.append(vehicle)
                 else:
                     # Keep vehicle in place - use final_pos which is the collision position
@@ -444,6 +494,15 @@ class IntersectionModel:
                 vehicle.velocity = final_vel
                 self.grid[vehicle.road][vehicle.lane][final_pos] = vehicle
 
+                # Track throughput: count vehicles that exit the intersection
+                if (
+                    self.should_record_metrics()
+                    and not vehicle.exited_intersection
+                    and final_pos > self.intersection_end
+                ):
+                    self.throughput += 1
+                    vehicle.exited_intersection = True
+
         # Remove vehicles that have left the road
         for vehicle in vehicles_to_remove:
             self.vehicles.remove(vehicle)
@@ -452,6 +511,22 @@ class IntersectionModel:
             for road in intersection_entrants:
                 if vehicle in intersection_entrants[road]:
                     intersection_entrants[road].remove(vehicle)
+
+        # Track velocities for average speed calculation
+        if self.should_record_metrics():
+            total_velocity_sum = 0
+            total_vehicle_count = 0
+            for vehicle in self.vehicles:
+                total_velocity_sum += vehicle.velocity
+                total_vehicle_count += 1
+
+            avg_velocity = (
+                total_velocity_sum / total_vehicle_count
+                if total_vehicle_count > 0
+                else 0
+            )
+
+            self.avg_velocities += avg_velocity
 
         self.time_step += 1
 
@@ -475,11 +550,7 @@ class IntersectionModel:
             if self.completed_vehicles > 0
             else 0
         )
-        avg_speed = (
-            self.total_distance_traveled / self.total_travel_time
-            if self.total_travel_time > 0
-            else 0
-        )
+        avg_speed = self.avg_velocities / self.N_vehicles if self.N_vehicles > 0 else 0
 
         return {
             "n_lateral": self.N_lateral,
@@ -492,6 +563,7 @@ class IntersectionModel:
             "completed_vehicles": self.completed_vehicles,
             "avg_travel_time": avg_travel_time,
             "avg_speed": avg_speed,
+            "throughput": self.throughput,
         }
 
     def get_params(self):

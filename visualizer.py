@@ -258,8 +258,8 @@ class TrafficSimulationVisualizer:
             else 0
         )
         avg_speed = (
-            self.model.total_distance_traveled / self.model.total_travel_time
-            if self.model.total_travel_time > 0
+            self.model.avg_velocities / len(self.model.vehicles)
+            if len(self.model.vehicles) > 0
             else 0
         )
 

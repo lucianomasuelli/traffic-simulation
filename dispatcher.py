@@ -187,7 +187,7 @@ class SimulationDispatcher:
         if self.verbose:
             print("-" * 80)
             print(f"All simulations completed in {total_time:.2f} seconds")
-            print(f"Average time per simulation: {total_sims/total_time:.2f} seconds")
+            print(f"Average time per simulation: {total_time/total_sims:.2f} seconds")
             print(f"Results saved to: {self.output_file}")
 
         return results
