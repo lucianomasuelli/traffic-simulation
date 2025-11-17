@@ -15,28 +15,33 @@ class TrafficSimulationVisualizer:
     Cars are shown as black cells in their respective lanes.
     """
 
-    def __init__(self, model: IntersectionModel, interval: int = 100):
+    def __init__(self, model: IntersectionModel, interval: int = 100, dpi: int = 150):
         """
         Initialize the visualizer.
 
         Args:
             model: IntersectionModel instance to visualize
             interval: Animation interval in milliseconds (time between frames)
+            dpi: Dots per inch for the figure (higher = better resolution)
         """
         self.model = model
         self.interval = interval
+        self.dpi = dpi
+
+        # Calculate scaling factor based on DPI (baseline is 100 DPI)
+        self.scale = dpi / 100.0
 
         # Create figure and axis
-        self.fig, self.ax = plt.subplots(figsize=(16, 16))
+        self.fig, self.ax = plt.subplots(figsize=(16, 16), dpi=dpi)
 
         # Grid dimensions
         self.L_TOTAL = model.L_TOTAL
         self.intersection_start = model.intersection_start
         self.intersection_end = model.intersection_end
 
-        # Visual settings for larger display
-        self.cell_size = 3.0  # Size of each cell (car size)
-        self.lane_width = 4.0  # Width of each lane
+        # Visual settings that scale with DPI
+        self.cell_size = 3.0 * self.scale  # Size of each cell (car size)
+        self.lane_width = 4.0 * self.scale  # Width of each lane
 
         # Color cycling for vehicles
         self.vehicle_colors = [
@@ -64,10 +69,16 @@ class TrafficSimulationVisualizer:
         self.ax.set_aspect("equal")
         # Remove grid for cleaner visualization
         self.ax.grid(False)
-        self.ax.set_xlabel("Position (cells)", fontsize=14, fontweight="bold")
-        self.ax.set_ylabel("Position (cells)", fontsize=14, fontweight="bold")
+        self.ax.set_xlabel(
+            "Position (cells)", fontsize=int(14 * self.scale), fontweight="bold"
+        )
+        self.ax.set_ylabel(
+            "Position (cells)", fontsize=int(14 * self.scale), fontweight="bold"
+        )
         self.ax.set_title(
-            "Traffic Intersection Simulation", fontsize=16, fontweight="bold"
+            "Traffic Intersection Simulation",
+            fontsize=int(16 * self.scale),
+            fontweight="bold",
         )
 
     def _get_road_coordinates(
@@ -107,15 +118,19 @@ class TrafficSimulationVisualizer:
         """Draw the road infrastructure (lanes and intersection)."""
         center = self.L_TOTAL / 2
 
-        # Draw Road R1 (vertical) - two lanes with wider lines
+        # Draw Road R1 (vertical) - two lanes with scaled line width
         for lane_offset in [-self.lane_width / 2, self.lane_width / 2]:
             x = center + lane_offset
-            self.ax.plot([x, x], [0, self.L_TOTAL], "k-", linewidth=4, alpha=0.5)
+            self.ax.plot(
+                [x, x], [0, self.L_TOTAL], "k-", linewidth=4 * self.scale, alpha=0.5
+            )
 
-        # Draw Road R2 (horizontal) - two lanes with wider lines
+        # Draw Road R2 (horizontal) - two lanes with scaled line width
         for lane_offset in [-self.lane_width / 2, self.lane_width / 2]:
             y = center + lane_offset
-            self.ax.plot([0, self.L_TOTAL], [y, y], "k-", linewidth=4, alpha=0.5)
+            self.ax.plot(
+                [0, self.L_TOTAL], [y, y], "k-", linewidth=4 * self.scale, alpha=0.5
+            )
 
         # Highlight intersection zone (adjusted for wider lanes)
         intersection_rect = Rectangle(
@@ -125,7 +140,7 @@ class TrafficSimulationVisualizer:
             ),
             self.intersection_end - self.intersection_start + 2 * self.lane_width,
             self.intersection_end - self.intersection_start + 2 * self.lane_width,
-            linewidth=3,
+            linewidth=3 * self.scale,
             edgecolor="orange",
             facecolor="yellow",
             alpha=0.2,
@@ -133,14 +148,14 @@ class TrafficSimulationVisualizer:
         )
         self.ax.add_patch(intersection_rect)
 
-        # Draw stop lines with wider visibility
+        # Draw stop lines with scaled width
         stop_line_pos = self.intersection_start - 0.5
         # R1 stop line (horizontal line before intersection)
         self.ax.plot(
             [center - self.lane_width, center + self.lane_width],
             [stop_line_pos, stop_line_pos],
             "r--",
-            linewidth=3,
+            linewidth=3 * self.scale,
             alpha=0.7,
         )
         # R2 stop line (vertical line before intersection)
@@ -148,58 +163,58 @@ class TrafficSimulationVisualizer:
             [stop_line_pos, stop_line_pos],
             [center - self.lane_width, center + self.lane_width],
             "r--",
-            linewidth=3,
+            linewidth=3 * self.scale,
             alpha=0.7,
         )
 
     def _draw_traffic_lights(self):
         """Draw traffic light indicators."""
         center = self.L_TOTAL / 2
-        offset = 5
+        offset = 5 * self.scale
 
-        # Traffic light for R1 (vertical road) - positioned to the side with larger size
+        # Traffic light for R1 (vertical road) - scaled size
         r1_color = (
             "green"
             if self.model.traffic_light[Road.R1] == TrafficLightState.GREEN
             else "red"
         )
         r1_light = plt.Circle(
-            (center + offset, self.intersection_start - 3),
-            1.5,
+            (center + offset, self.intersection_start - 3 * self.scale),
+            1.5 * self.scale,
             color=r1_color,
             zorder=10,
         )
         self.ax.add_patch(r1_light)
         self.ax.text(
             center + offset,
-            self.intersection_start - 6,
+            self.intersection_start - 6 * self.scale,
             "R1",
             ha="center",
             va="center",
-            fontsize=14,
+            fontsize=int(14 * self.scale),
             fontweight="bold",
         )
 
-        # Traffic light for R2 (horizontal road) - positioned to the side with larger size
+        # Traffic light for R2 (horizontal road) - scaled size
         r2_color = (
             "green"
             if self.model.traffic_light[Road.R2] == TrafficLightState.GREEN
             else "red"
         )
         r2_light = plt.Circle(
-            (self.intersection_start - 3, center + offset),
-            1.5,
+            (self.intersection_start - 3 * self.scale, center + offset),
+            1.5 * self.scale,
             color=r2_color,
             zorder=10,
         )
         self.ax.add_patch(r2_light)
         self.ax.text(
-            self.intersection_start - 6,
+            self.intersection_start - 6 * self.scale,
             center + offset,
             "R2",
             ha="center",
             va="center",
-            fontsize=14,
+            fontsize=int(14 * self.scale),
             fontweight="bold",
         )
 
@@ -225,25 +240,25 @@ class TrafficSimulationVisualizer:
                 color = self.vehicle_color_map[id(vehicle)]
                 edge_color = "black"
 
-            # Draw vehicle as a larger circle with visible border
+            # Draw vehicle as a scaled circle with visible border
             vehicle_circle = plt.Circle(
                 (x, y),
                 self.cell_size / 2,
                 facecolor=color,
                 edgecolor=edge_color,
-                linewidth=0.5,
+                linewidth=0.5 * self.scale,
                 zorder=5,
             )
             self.ax.add_patch(vehicle_circle)
 
-            # Always show velocity as text inside the circle with larger font
+            # Always show velocity as text inside the circle with scaled font
             self.ax.text(
                 x,
                 y,
                 str(vehicle.velocity),
                 ha="center",
                 va="center",
-                fontsize=14,
+                fontsize=int(14 * self.scale),
                 color="white",
                 fontweight="bold",
                 zorder=6,
@@ -278,7 +293,7 @@ class TrafficSimulationVisualizer:
             0.98,
             info_text,
             transform=self.ax.transAxes,
-            fontsize=10,
+            fontsize=int(10 * self.scale),
             verticalalignment="top",
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
         )
@@ -302,13 +317,21 @@ class TrafficSimulationVisualizer:
 
         return self.ax.patches
 
-    def animate(self, frames: int = 500, save_path: str = None):
+    def animate(
+        self,
+        frames: int = 500,
+        save_path: str = None,
+        fps: int = 30,
+        bitrate: int = 5000,
+    ):
         """
         Run the animation.
 
         Args:
             frames: Number of frames (simulation steps) to run
             save_path: If provided, save animation to this file path (e.g., 'animation.mp4')
+            fps: Frames per second for saved video (higher = smoother)
+            bitrate: Video bitrate in kbps (higher = better quality)
         """
         anim = animation.FuncAnimation(
             self.fig,
@@ -321,15 +344,16 @@ class TrafficSimulationVisualizer:
 
         if save_path:
             print(f"Saving animation to {save_path}...")
+            print(f"Settings: DPI={self.dpi}, FPS={fps}, Bitrate={bitrate}kbps")
             Writer = (
                 animation.writers["pillow"]
                 if save_path.endswith(".gif")
                 else animation.FFMpegWriter
             )
             writer = Writer(
-                fps=10, metadata=dict(artist="Traffic Simulation"), bitrate=1800
+                fps=fps, metadata=dict(artist="Traffic Simulation"), bitrate=bitrate
             )
-            anim.save(save_path, writer=writer)
+            anim.save(save_path, writer=writer, dpi=self.dpi)
             print(f"Animation saved to {save_path}")
         else:
             plt.show()
@@ -350,6 +374,9 @@ def create_and_run_visualization(
     frames: int = 500,
     interval: int = 100,
     save_path: str = None,
+    dpi: int = 150,
+    fps: int = 30,
+    bitrate: int = 5000,
 ):
     """
     Convenience function to create and run a visualization.
@@ -367,6 +394,9 @@ def create_and_run_visualization(
         frames: Number of animation frames
         interval: Time between frames (ms)
         save_path: Path to save animation (optional)
+        dpi: Dots per inch for figure resolution (higher = better quality)
+        fps: Frames per second for video (higher = smoother)
+        bitrate: Video bitrate in kbps (higher = better quality)
     """
     from parameters import ModelParameters
 
@@ -386,8 +416,10 @@ def create_and_run_visualization(
     )
 
     # Create visualizer and run animation
-    visualizer = TrafficSimulationVisualizer(model, interval=interval)
-    return visualizer.animate(frames=frames, save_path=save_path)
+    visualizer = TrafficSimulationVisualizer(model, interval=interval, dpi=dpi)
+    return visualizer.animate(
+        frames=frames, save_path=save_path, fps=fps, bitrate=bitrate
+    )
 
 
 if __name__ == "__main__":
